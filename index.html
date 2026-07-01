@@ -1,3 +1,1375 @@
-你好ai
-hello,world
-aaabbbccc12344555
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 研学社 - 人工智能研究社</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+    <style>
+        /* ============================================
+           CSS RESET & VARIABLES
+           ============================================ */
+        :root {
+            --bg-deep: #06060e;
+            --bg-card: rgba(15, 15, 35, 0.6);
+            --neon-blue: #00d4ff;
+            --neon-purple: #7b2fff;
+            --neon-cyan: #00ff88;
+            --neon-pink: #ff2d95;
+            --text-primary: #e8e8f0;
+            --text-secondary: #9898b8;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glow-blue: 0 0 20px rgba(0, 212, 255, 0.4), 0 0 60px rgba(0, 212, 255, 0.15);
+            --glow-purple: 0 0 20px rgba(123, 47, 255, 0.4), 0 0 60px rgba(123, 47, 255, 0.15);
+            --font-cn: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+            --font-en: 'Space Grotesk', 'Inter', 'Segoe UI', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: var(--neon-blue) var(--bg-deep);
+        }
+
+        body {
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            font-family: var(--font-cn);
+            overflow-x: hidden;
+            cursor: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-deep); }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, var(--neon-blue), var(--neon-purple));
+            border-radius: 3px;
+        }
+
+        /* ============================================
+           CUSTOM CURSOR
+           ============================================ */
+        .cursor {
+            width: 20px; height: 20px;
+            border: 2px solid var(--neon-blue);
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transition: transform 0.15s ease, border-color 0.3s;
+            mix-blend-mode: difference;
+        }
+        .cursor-dot {
+            width: 4px; height: 4px;
+            background: var(--neon-cyan);
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        .cursor-trail {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9998;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,212,255,0.6) 0%, transparent 70%);
+            animation: trailFade 0.6s ease-out forwards;
+        }
+        @keyframes trailFade {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+
+        /* ============================================
+           THREE.JS CANVAS
+           ============================================ */
+        #bg-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: -1;
+        }
+
+        /* ============================================
+           NAVIGATION
+           ============================================ */
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            padding: 1.2rem 4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(0px);
+        }
+        nav.scrolled {
+            padding: 0.8rem 4rem;
+            background: rgba(6, 6, 14, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+        .nav-logo {
+            font-family: var(--font-en);
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -1px;
+            position: relative;
+        }
+        .nav-logo::after {
+            content: '';
+            position: absolute;
+            bottom: -4px; left: 0;
+            width: 100%; height: 2px;
+            background: linear-gradient(90deg, var(--neon-blue), transparent);
+        }
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            transition: color 0.3s;
+            position: relative;
+        }
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -6px; left: 0;
+            width: 0; height: 1.5px;
+            background: var(--neon-blue);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--glow-blue);
+        }
+        .nav-links a:hover { color: #fff; }
+        .nav-links a:hover::after { width: 100%; }
+        .nav-toggle { display: none; flex-direction: column; gap: 5px; cursor: pointer; z-index: 1001; }
+        .nav-toggle span {
+            width: 28px; height: 2px;
+            background: #fff;
+            transition: all 0.3s;
+        }
+
+        /* ============================================
+           HERO SECTION
+           ============================================ */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 0 2rem;
+            position: relative;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.2rem;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 50px;
+            font-size: 0.85rem;
+            color: var(--neon-blue);
+            background: rgba(0, 212, 255, 0.05);
+            margin-bottom: 2rem;
+            animation: fadeInUp 0.8s ease-out;
+            letter-spacing: 1px;
+        }
+        .hero-badge .dot {
+            width: 8px; height: 8px;
+            background: var(--neon-cyan);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        .hero-title {
+            font-family: var(--font-cn);
+            font-size: clamp(3rem, 8vw, 7rem);
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: 2px;
+            animation: fadeInUp 0.8s ease-out 0.15s both;
+        }
+        .hero-title .gradient-text {
+            background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 50%, var(--neon-cyan) 100%);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 4s ease-in-out infinite;
+        }
+        .hero-subtitle {
+            font-size: clamp(1rem, 2.5vw, 1.4rem);
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 1.5rem 0 2.5rem;
+            line-height: 1.8;
+            animation: fadeInUp 0.8s ease-out 0.3s both;
+        }
+        .hero-subtitle .typewriter {
+            color: var(--neon-cyan);
+            border-right: 2px solid var(--neon-cyan);
+            animation: blink 0.8s step-end infinite;
+        }
+        @keyframes blink { 50% { border-color: transparent; } }
+
+        .btn-group {
+            display: flex;
+            gap: 1.2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            animation: fadeInUp 0.8s ease-out 0.45s both;
+        }
+        .btn {
+            position: relative;
+            padding: 0.9rem 2.2rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            letter-spacing: 0.5px;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            color: #fff;
+            border: none;
+            box-shadow: 0 4px 25px rgba(0, 212, 255, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 40px rgba(0, 212, 255, 0.5);
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--neon-blue);
+            border: 1.5px solid rgba(0, 212, 255, 0.4);
+        }
+        .btn-outline:hover {
+            background: rgba(0, 212, 255, 0.08);
+            border-color: var(--neon-blue);
+            box-shadow: var(--glow-blue);
+            transform: translateY(-3px);
+        }
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 0; height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            transition: all 0.5s ease;
+            transform: translate(-50%, -50%);
+        }
+        .btn:active::before { width: 300px; height: 300px; }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            animation: fadeInUp 0.8s ease-out 0.9s both;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+        }
+        .scroll-line {
+            width: 1px; height: 50px;
+            background: linear-gradient(180deg, var(--neon-blue), transparent);
+            animation: scrollPulse 2s ease-in-out infinite;
+        }
+        @keyframes scrollPulse {
+            0%, 100% { opacity: 0.3; transform: scaleY(1); }
+            50% { opacity: 1; transform: scaleY(1.3); }
+        }
+
+        /* ============================================
+           SECTION COMMONS
+           ============================================ */
+        section {
+            padding: 7rem 4rem;
+            position: relative;
+        }
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+        .section-tag {
+            display: inline-block;
+            font-family: var(--font-en);
+            font-size: 0.75rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--neon-blue);
+            margin-bottom: 1rem;
+        }
+        .section-title {
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 800;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+        }
+        .section-title .highlight {
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .section-line {
+            width: 80px; height: 3px;
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
+            margin: 0 auto;
+            border-radius: 2px;
+        }
+
+        /* ============================================
+           ABOUT SECTION
+           ============================================ */
+        .about-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.8rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .about-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem 2rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+        .about-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.04), transparent);
+            transition: left 0.6s;
+        }
+        .about-card:hover::before { left: 100%; }
+        .about-card:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+            transform: translateY(-8px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 212, 255, 0.08);
+        }
+        .about-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+            animation: float 3s ease-in-out infinite;
+        }
+        .about-card:nth-child(odd) .about-icon { animation-delay: 0s; }
+        .about-card:nth-child(even) .about-icon { animation-delay: 1.5s; }
+        .about-card h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 0.8rem;
+            color: #fff;
+        }
+        .about-card p {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            font-size: 0.95rem;
+        }
+
+        /* ============================================
+           STATS SECTION
+           ============================================ */
+        .stats-section {
+            background: linear-gradient(180deg, transparent, rgba(0, 212, 255, 0.02), transparent);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 2rem;
+        }
+        .stat-number {
+            font-family: var(--font-en);
+            font-size: 3.5rem;
+            font-weight: 900;
+            background: linear-gradient(180deg, #fff 0%, var(--neon-blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* ============================================
+           ACTIVITIES SECTION
+           ============================================ */
+        .activities-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .activity-item {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            gap: 2rem;
+            padding: 2rem 0;
+            border-bottom: 1px solid var(--glass-border);
+            transition: all 0.3s;
+            cursor: default;
+        }
+        .activity-item:hover {
+            padding-left: 1rem;
+            background: var(--glass-bg);
+            margin: 0 -1rem;
+            padding-right: 1rem;
+            border-radius: 12px;
+            border-bottom-color: transparent;
+        }
+        .activity-date {
+            font-family: var(--font-en);
+            font-size: 0.85rem;
+            color: var(--neon-blue);
+            padding-top: 0.3rem;
+        }
+        .activity-content h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .activity-content p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+        .activity-tag {
+            display: inline-block;
+            padding: 0.2rem 0.8rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--neon-blue);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        /* ============================================
+           MEMBERS SECTION
+           ============================================ */
+        .members-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .member-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s;
+            position: relative;
+            overflow: hidden;
+        }
+        .member-card:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+            transform: translateY(-6px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        .member-avatar {
+            width: 90px; height: 90px;
+            border-radius: 50%;
+            margin: 0 auto 1.2rem;
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            position: relative;
+        }
+        .member-avatar::after {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple), var(--neon-cyan));
+            opacity: 0;
+            transition: opacity 0.4s;
+            z-index: -1;
+            filter: blur(10px);
+        }
+        .member-card:hover .member-avatar::after { opacity: 0.6; }
+        .member-card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.3rem; }
+        .member-role {
+            color: var(--neon-blue);
+            font-size: 0.85rem;
+            margin-bottom: 0.8rem;
+        }
+        .member-bio {
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+            line-height: 1.6;
+        }
+
+        /* ============================================
+           CONTACT SECTION
+           ============================================ */
+        .contact-container {
+            max-width: 650px;
+            margin: 0 auto;
+        }
+        .contact-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+        .form-group {
+            position: relative;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 1rem 1.2rem;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            color: #fff;
+            font-family: var(--font-cn);
+            font-size: 0.95rem;
+            transition: all 0.3s;
+            outline: none;
+            resize: vertical;
+        }
+        .form-group textarea { min-height: 130px; }
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+            background: rgba(0, 212, 255, 0.03);
+        }
+        .form-group label {
+            position: absolute;
+            left: 1.2rem;
+            top: 1rem;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+        .form-group input:focus ~ label,
+        .form-group input:not(:placeholder-shown) ~ label,
+        .form-group textarea:focus ~ label,
+        .form-group textarea:not(:placeholder-shown) ~ label {
+            top: -0.6rem;
+            left: 0.8rem;
+            font-size: 0.75rem;
+            padding: 0 0.4rem;
+            background: var(--bg-deep);
+            color: var(--neon-blue);
+        }
+        .form-group input::placeholder,
+        .form-group textarea::placeholder { color: transparent; }
+
+        .contact-info {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 3rem;
+        }
+        .contact-info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .contact-info-item .icon {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: rgba(0, 212, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        /* ============================================
+           FOOTER
+           ============================================ */
+        footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            border-top: 1px solid var(--glass-border);
+        }
+        footer p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+        footer .footer-love {
+            color: var(--neon-pink);
+        }
+
+        /* ============================================
+           ANIMATIONS
+           ============================================ */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+        @keyframes glitch {
+            0%, 100% { transform: translate(0); }
+            20% { transform: translate(-3px, 2px); }
+            40% { transform: translate(3px, -1px); }
+            60% { transform: translate(-2px, -2px); }
+            80% { transform: translate(2px, 1px); }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .reveal-delay-1 { transition-delay: 0.1s; }
+        .reveal-delay-2 { transition-delay: 0.2s; }
+        .reveal-delay-3 { transition-delay: 0.3s; }
+        .reveal-delay-4 { transition-delay: 0.4s; }
+
+        /* ============================================
+           MOBILE MENU
+           ============================================ */
+        .nav-links.mobile-active {
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(6, 6, 14, 0.97);
+            backdrop-filter: blur(30px);
+            justify-content: center;
+            align-items: center;
+            gap: 2.5rem;
+            z-index: 1000;
+        }
+        .nav-links.mobile-active a {
+            font-size: 1.5rem;
+        }
+        .nav-toggle.active span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+        .nav-toggle.active span:nth-child(2) { opacity: 0; }
+        .nav-toggle.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+        /* ============================================
+           RESPONSIVE
+           ============================================ */
+        @media (max-width: 768px) {
+            nav { padding: 1rem 1.5rem; }
+            nav.scrolled { padding: 0.7rem 1.5rem; }
+            .nav-links { display: none; }
+            .nav-toggle { display: flex; }
+            section { padding: 5rem 1.5rem; }
+            .hero { padding: 0 1.5rem; }
+            .activity-item { grid-template-columns: 1fr; gap: 0.5rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .stat-number { font-size: 2.5rem; }
+            body { cursor: auto; }
+            .cursor, .cursor-dot { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Custom Cursor -->
+    <div class="cursor"></div>
+    <div class="cursor-dot"></div>
+
+    <!-- Three.js Background -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Navigation -->
+    <nav id="navbar">
+        <div class="nav-logo">AI Lab</div>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="#home" data-nav>首页</a></li>
+            <li><a href="#about" data-nav>关于我们</a></li>
+            <li><a href="#activities" data-nav>活动风采</a></li>
+            <li><a href="#members" data-nav>成员介绍</a></li>
+            <li><a href="#contact" data-nav>加入我们</a></li>
+        </ul>
+        <div class="nav-toggle" id="navToggle">
+            <span></span><span></span><span></span>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="hero-badge">
+            <span class="dot"></span> 探索人工智能的无限可能
+        </div>
+        <h1 class="hero-title">
+            <span class="gradient-text">AI 研学社</span>
+        </h1>
+        <p class="hero-subtitle">
+            我们是一群热爱AI的学生<br>
+            <span class="typewriter" id="typewriter"></span>
+        </p>
+        <div class="btn-group">
+            <a href="#about" class="btn btn-primary magnetic">了解更多</a>
+            <a href="#contact" class="btn btn-outline magnetic">加入我们</a>
+        </div>
+        <div class="scroll-indicator">
+            <span>SCROLL</span>
+            <div class="scroll-line"></div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about">
+        <div class="section-header reveal">
+            <div class="section-tag">About Us</div>
+            <h2 class="section-title">关于<span class="highlight">AI研学社</span></h2>
+            <div class="section-line"></div>
+        </div>
+        <div class="about-grid">
+            <div class="about-card reveal reveal-delay-1" data-tilt>
+                <div class="about-icon">🧠</div>
+                <h3>前沿技术探索</h3>
+                <p>深入探索大语言模型、计算机视觉、强化学习等AI前沿领域，每周举办技术分享会，与志同道合的伙伴一起学习最前沿的AI知识。</p>
+            </div>
+            <div class="about-card reveal reveal-delay-2" data-tilt>
+                <div class="about-icon">💻</div>
+                <h3>实战项目驱动</h3>
+                <p>从零开始构建AI应用：智能聊天机器人、图像识别系统、自然语言处理工具……在真实项目中锻炼工程能力，打造令人惊艳的作品集。</p>
+            </div>
+            <div class="about-card reveal reveal-delay-3" data-tilt>
+                <div class="about-icon">🏆</div>
+                <h3>竞赛与交流</h3>
+                <p>组队参加各类AI竞赛、黑客松和学术会议，与全国高校AI社团联动交流，在实战中快速成长，积累宝贵经验。</p>
+            </div>
+            <div class="about-card reveal reveal-delay-4" data-tilt>
+                <div class="about-icon">🤝</div>
+                <h3>开放共享社群</h3>
+                <p>无论你是AI小白还是资深玩家，这里都有你的一席之地。我们相信开放、分享、互助的力量，让每个人都能在AI浪潮中找到方向。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="stats-grid">
+            <div class="stat-item reveal">
+                <div class="stat-number" data-count="128">0</div>
+                <div class="stat-label">社团成员</div>
+            </div>
+            <div class="stat-item reveal reveal-delay-1">
+                <div class="stat-number" data-count="36">0</div>
+                <div class="stat-label">完成项目</div>
+            </div>
+            <div class="stat-item reveal reveal-delay-2">
+                <div class="stat-number" data-count="12">0</div>
+                <div class="stat-label">竞赛获奖</div>
+            </div>
+            <div class="stat-item reveal reveal-delay-3">
+                <div class="stat-number" data-count="52">0</div>
+                <div class="stat-label">技术讲座</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Activities Section -->
+    <section id="activities">
+        <div class="section-header reveal">
+            <div class="section-tag">Activities</div>
+            <h2 class="section-title">活动<span class="highlight">风采</span></h2>
+            <div class="section-line"></div>
+        </div>
+        <div class="activities-container">
+            <div class="activity-item reveal">
+                <div class="activity-date">2024.12</div>
+                <div class="activity-content">
+                    <h3>大模型应用开发 Workshop</h3>
+                    <p>从 Prompt Engineering 到 RAG 架构，手把手教你构建基于大语言模型的智能应用。现场 Demo：AI 论文助手、智能代码审查工具。</p>
+                    <span class="activity-tag">Workshop</span>
+                </div>
+            </div>
+            <div class="activity-item reveal">
+                <div class="activity-date">2024.11</div>
+                <div class="activity-content">
+                    <h3>AI 黑客松：48小时创新挑战</h3>
+                    <p>主题"AI for Education"，参赛队伍在48小时内完成从创意到原型的全流程。冠军项目：基于多模态AI的盲文学习助手。</p>
+                    <span class="activity-tag">Hackathon</span>
+                </div>
+            </div>
+            <div class="activity-item reveal">
+                <div class="activity-date">2024.10</div>
+                <div class="activity-content">
+                    <h3>Stable Diffusion 创意工坊</h3>
+                    <p>从扩散模型原理到 ComfyUI 实战，探索 AI 绘画的无限创意可能。优秀作品在校园艺术展展出，引发广泛关注。</p>
+                    <span class="activity-tag">创意工坊</span>
+                </div>
+            </div>
+            <div class="activity-item reveal">
+                <div class="activity-date">2024.09</div>
+                <div class="activity-content">
+                    <h3>新学期招新 & AI 入门讲座</h3>
+                    <p>面向全校的 AI 入门分享，涵盖机器学习基础、Python 实战和 AI 行业趋势。现场互动问答，吸引200+同学参与。</p>
+                    <span class="activity-tag">讲座</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Members Section -->
+    <section id="members">
+        <div class="section-header reveal">
+            <div class="section-tag">Members</div>
+            <h2 class="section-title">核心<span class="highlight">成员</span></h2>
+            <div class="section-line"></div>
+        </div>
+        <div class="members-grid">
+            <div class="member-card reveal reveal-delay-1" data-tilt>
+                <div class="member-avatar">👨‍💻</div>
+                <h3>张同学</h3>
+                <div class="member-role">社长 / ML Lead</div>
+                <p class="member-bio">计算机科学大三，专注NLP方向，在ACL发表论文一篇。热爱开源，坚信AI应该服务于每一个人。</p>
+            </div>
+            <div class="member-card reveal reveal-delay-2" data-tilt>
+                <div class="member-avatar">👩‍🔬</div>
+                <h3>李同学</h3>
+                <div class="member-role">副社长 / CV Lead</div>
+                <p class="member-bio">人工智能方向研究生，研究方向为多模态大模型与视觉理解，曾获CVPR最佳论文提名。</p>
+            </div>
+            <div class="member-card reveal reveal-delay-3" data-tilt>
+                <div class="member-avatar">🧑‍🎨</div>
+                <h3>王同学</h3>
+                <div class="member-role">创意总监 / AIGC Lead</div>
+                <p class="member-bio">数字媒体艺术专业，擅长AI绘画与视频生成。将技术与艺术完美融合，作品多次入选AI艺术展。</p>
+            </div>
+            <div class="member-card reveal reveal-delay-4" data-tilt>
+                <div class="member-avatar">👩‍🏫</div>
+                <h3>陈同学</h3>
+                <div class="member-role">教学负责人</div>
+                <p class="member-bio">软件工程大二，从零自学AI两年，深知初学者的痛点。负责社团入门课程体系设计，耐心细致。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact">
+        <div class="section-header reveal">
+            <div class="section-tag">Join Us</div>
+            <h2 class="section-title">加入<span class="highlight">我们</span></h2>
+            <div class="section-line"></div>
+        </div>
+        <div class="contact-container reveal">
+            <form class="contact-form" id="contactForm">
+                <div class="form-group">
+                    <input type="text" id="name" placeholder=" " required>
+                    <label for="name">你的名字</label>
+                </div>
+                <div class="form-group">
+                    <input type="email" id="email" placeholder=" " required>
+                    <label for="email">电子邮箱</label>
+                </div>
+                <div class="form-group">
+                    <textarea id="message" placeholder=" " required></textarea>
+                    <label for="message">想说的话（如：自我介绍 / 感兴趣的AI方向 / 想参与的项目）</label>
+                </div>
+                <button type="submit" class="btn btn-primary magnetic" style="align-self: flex-start;">
+                    发送申请 ✦
+                </button>
+            </form>
+            <div class="contact-info">
+                <div class="contact-info-item">
+                    <div class="icon">📍</div>
+                    <span>学生活动中心 301</span>
+                </div>
+                <div class="contact-info-item">
+                    <div class="icon">📧</div>
+                    <span>ai-club@school.edu.cn</span>
+                </div>
+                <div class="contact-info-item">
+                    <div class="icon">🕐</div>
+                    <span>每周五 19:00 例会</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>© 2024 AI 研学社 · Made with <span class="footer-love">♥</span> by AI Lab Team</p>
+    </footer>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
+    </script>
+    <!-- GSAP CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js">
+    </script>
+
+    <script>
+        // ============================================
+        // THREE.JS - NEURAL NETWORK PARTICLE BACKGROUND
+        // ============================================
+        (function() {
+            const canvas = document.getElementById('bg-canvas');
+            const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.z = 30;
+
+            // Particles
+            const PARTICLE_COUNT = 200;
+            const CONNECT_DISTANCE = 8;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(PARTICLE_COUNT * 3);
+            const colors = new Float32Array(PARTICLE_COUNT * 3);
+
+            const color1 = new THREE.Color('#00d4ff');
+            const color2 = new THREE.Color('#7b2fff');
+            const color3 = new THREE.Color('#00ff88');
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 50;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 40;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 30;
+
+                const mix = Math.random();
+                const color = color1.clone().lerp(color2, mix).lerp(color3, mix * 0.3);
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const particleMat = new THREE.PointsMaterial({
+                size: 0.15,
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                transparent: true,
+                opacity: 0.8,
+            });
+
+            const particles = new THREE.Points(geometry, particleMat);
+            scene.add(particles);
+
+            // Lines between close particles
+            const lineGeometry = new THREE.BufferGeometry();
+            const linePositions = [];
+            const lineColors = [];
+
+            function updateLines() {
+                linePositions.length = 0;
+                lineColors.length = 0;
+                const pos = geometry.attributes.position.array;
+
+                for (let i = 0; i < PARTICLE_COUNT; i++) {
+                    for (let j = i + 1; j < PARTICLE_COUNT; j++) {
+                        const dx = pos[i * 3] - pos[j * 3];
+                        const dy = pos[i * 3 + 1] - pos[j * 3 + 1];
+                        const dz = pos[i * 3 + 2] - pos[j * 3 + 2];
+                        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                        if (dist < CONNECT_DISTANCE) {
+                            linePositions.push(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
+                            linePositions.push(pos[j * 3], pos[j * 3 + 1], pos[j * 3 + 2]);
+                            const alpha = 1 - dist / CONNECT_DISTANCE;
+                            lineColors.push(0, 0.83, 1, alpha * 0.3);
+                            lineColors.push(0, 0.83, 1, alpha * 0.3);
+                        }
+                    }
+                }
+
+                lineGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(linePositions), 3));
+                lineGeometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(lineColors), 4));
+            }
+
+            updateLines();
+
+            const lineMat = new THREE.LineBasicMaterial({
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                transparent: true,
+                opacity: 0.6,
+            });
+
+            const lines = new THREE.LineSegments(lineGeometry, lineMat);
+            scene.add(lines);
+
+            // Mouse interaction
+            const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+
+            document.addEventListener('mousemove', (e) => {
+                mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
+                mouse.ty = -(e.clientY / window.innerHeight) * 2 + 1;
+            });
+
+            // Touch support
+            document.addEventListener('touchmove', (e) => {
+                mouse.tx = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+                mouse.ty = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+            }, { passive: true });
+
+            let frameCount = 0;
+            function animate() {
+                requestAnimationFrame(animate);
+                frameCount++;
+
+                // Smooth mouse follow
+                mouse.x += (mouse.tx - mouse.x) * 0.05;
+                mouse.y += (mouse.ty - mouse.y) * 0.05;
+
+                // Rotate based on mouse
+                particles.rotation.y += 0.0003;
+                particles.rotation.x += (mouse.y * 0.01 - particles.rotation.x) * 0.02;
+                lines.rotation.y = particles.rotation.y;
+                lines.rotation.x = particles.rotation.x;
+
+                // Gentle auto-rotation when mouse is still
+                if (Math.abs(mouse.tx) < 0.01 && Math.abs(mouse.ty) < 0.01) {
+                    particles.rotation.y += 0.001;
+                    lines.rotation.y += 0.001;
+                }
+
+                // Update lines every 15 frames for performance
+                if (frameCount % 15 === 0) {
+                    updateLines();
+                    lineGeometry.attributes.position.needsUpdate = true;
+                    lineGeometry.attributes.color.needsUpdate = true;
+                }
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        })();
+
+        // ============================================
+        // CUSTOM CURSOR
+        // ============================================
+        (function() {
+            if (window.innerWidth <= 768) return;
+
+            const cursor = document.querySelector('.cursor');
+            const cursorDot = document.querySelector('.cursor-dot');
+            let cx = window.innerWidth / 2,
+                cy = window.innerHeight / 2;
+            let dx = cx,
+                dy = cy;
+
+            document.addEventListener('mousemove', (e) => {
+                dx = e.clientX;
+                dy = e.clientY;
+                cursorDot.style.left = dx + 'px';
+                cursorDot.style.top = dy + 'px';
+            });
+
+            function updateCursor() {
+                cx += (dx - cx) * 0.2;
+                cy += (dy - cy) * 0.2;
+                cursor.style.left = cx + 'px';
+                cursor.style.top = cy + 'px';
+                requestAnimationFrame(updateCursor);
+            }
+            updateCursor();
+
+            // Trail effect
+            let lastTrail = 0;
+            document.addEventListener('mousemove', (e) => {
+                const now = Date.now();
+                if (now - lastTrail < 40) return;
+                lastTrail = now;
+
+                const trail = document.createElement('div');
+                trail.className = 'cursor-trail';
+                trail.style.left = e.clientX + 'px';
+                trail.style.top = e.clientY + 'px';
+                trail.style.width = '12px';
+                trail.style.height = '12px';
+                document.body.appendChild(trail);
+                setTimeout(() => trail.remove(), 600);
+            });
+
+            // Hover effects
+            const hoverTargets = document.querySelectorAll('a, button, .btn, .about-card, .member-card, .activity-item');
+            hoverTargets.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    cursor.style.transform = 'scale(1.8)';
+                    cursor.style.borderColor = '#00ff88';
+                    cursor.style.mixBlendMode = 'normal';
+                    cursor.style.background = 'rgba(0,255,136,0.1)';
+                });
+                el.addEventListener('mouseleave', () => {
+                    cursor.style.transform = 'scale(1)';
+                    cursor.style.borderColor = '#00d4ff';
+                    cursor.style.mixBlendMode = 'difference';
+                    cursor.style.background = 'transparent';
+                });
+            });
+        })();
+
+        // ============================================
+        // TYPEWRITER EFFECT
+        // ============================================
+        (function() {
+            const words = [
+                '在大模型时代探索智能的边界',
+                '用代码构建未来的AI应用',
+                '让机器学习变得触手可及',
+                '连接每一个热爱AI的灵魂',
+                '从这里，走向AI的星辰大海'
+            ];
+            let wordIdx = 0,
+                charIdx = 0,
+                isDeleting = false;
+            const el = document.getElementById('typewriter');
+            const typeSpeed = 70,
+                deleteSpeed = 35,
+                pauseTime = 2000;
+
+            function type() {
+                const current = words[wordIdx];
+                if (!isDeleting) {
+                    el.textContent = current.substring(0, charIdx + 1);
+                    charIdx++;
+                    if (charIdx === current.length) {
+                        setTimeout(() => { isDeleting = true;
+                            type(); }, pauseTime);
+                        return;
+                    }
+                } else {
+                    el.textContent = current.substring(0, charIdx - 1);
+                    charIdx--;
+                    if (charIdx === 0) {
+                        isDeleting = false;
+                        wordIdx = (wordIdx + 1) % words.length;
+                    }
+                }
+                setTimeout(type, isDeleting ? deleteSpeed : typeSpeed);
+            }
+            type();
+        })();
+
+        // ============================================
+        // SCROLL REVEAL
+        // ============================================
+        (function() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+
+            document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+        })();
+
+        // ============================================
+        // COUNTER ANIMATION
+        // ============================================
+        (function() {
+            const counterObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting) return;
+                    const el = entry.target;
+                    const target = parseInt(el.getAttribute('data-count'));
+                    const duration = 2000;
+                    const startTime = performance.now();
+
+                    function update(now) {
+                        const elapsed = now - startTime;
+                        const progress = Math.min(elapsed / duration, 1);
+                        // Ease out cubic
+                        const eased = 1 - Math.pow(1 - progress, 3);
+                        el.textContent = Math.floor(eased * target);
+                        if (progress < 1) {
+                            requestAnimationFrame(update);
+                        } else {
+                            el.textContent = target;
+                        }
+                    }
+                    requestAnimationFrame(update);
+                    counterObserver.unobserve(el);
+                });
+            }, { threshold: 0.5 });
+
+            document.querySelectorAll('[data-count]').forEach(el => counterObserver.observe(el));
+        })();
+
+        // ============================================
+        // 3D TILT EFFECT
+        // ============================================
+        (function() {
+            document.querySelectorAll('[data-tilt]').forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    const rotateX = (y - centerY) / centerY * -10;
+                    const rotateY = (x - centerX) / centerX * 10;
+
+                    card.style.transform =
+                        `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-8px)`;
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateY(0)';
+                });
+            });
+        })();
+
+        // ============================================
+        // MAGNETIC BUTTONS
+        // ============================================
+        (function() {
+            document.querySelectorAll('.magnetic').forEach(btn => {
+                btn.addEventListener('mousemove', (e) => {
+                    const rect = btn.getBoundingClientRect();
+                    const x = e.clientX - rect.left - rect.width / 2;
+                    const y = e.clientY - rect.top - rect.height / 2;
+                    gsap.to(btn, {
+                        x: x * 0.3,
+                        y: y * 0.3,
+                        duration: 0.4,
+                        ease: 'power2.out'
+                    });
+                });
+                btn.addEventListener('mouseleave', () => {
+                    gsap.to(btn, { x: 0, y: 0, duration: 0.6, ease: 'elastic.out(1, 0.5)' });
+                });
+            });
+        })();
+
+        // ============================================
+        // NAVIGATION SCROLL
+        // ============================================
+        (function() {
+            const nav = document.getElementById('navbar');
+            const navToggle = document.getElementById('navToggle');
+            const navLinks = document.getElementById('navLinks');
+
+            window.addEventListener('scroll', () => {
+                nav.classList.toggle('scrolled', window.scrollY > 50);
+            });
+
+            navToggle.addEventListener('click', () => {
+                navLinks.classList.toggle('mobile-active');
+                navToggle.classList.toggle('active');
+            });
+
+            document.querySelectorAll('[data-nav]').forEach(link => {
+                link.addEventListener('click', () => {
+                    navLinks.classList.remove('mobile-active');
+                    navToggle.classList.remove('active');
+                });
+            });
+        })();
+
+        // ============================================
+        // FORM SUBMIT
+        // ============================================
+        (function() {
+            document.getElementById('contactForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const btn = e.target.querySelector('button');
+                const originalText = btn.textContent;
+                btn.textContent = '✓ 发送成功！';
+                btn.style.background = 'linear-gradient(135deg, #00ff88, #00d4ff)';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                    e.target.reset();
+                }, 3000);
+            });
+        })();
+
+        // ============================================
+        // PARALLAX ON SCROLL (subtle)
+        // ============================================
+        (function() {
+            window.addEventListener('scroll', () => {
+                const scrolled = window.scrollY;
+                document.querySelectorAll('.about-card, .member-card').forEach((el, i) => {
+                    const speed = 0.03 + i * 0.01;
+                    el.style.transform = el.style.transform.replace(/translateY\([^)]*\)/, '') +
+                        ` translateY(${scrolled * speed * 0.3}px)`;
+                });
+            });
+        })();
+
+        console.log('%c🚀 AI研学社 %c网站已就绪 %c| %cPowered by Three.js + GSAP',
+            'color:#00d4ff;font-size:1.4em;font-weight:bold;',
+            'color:#00ff88;',
+            'color:#7b2fff;',
+            'color:#9898b8;');
+        console.log('%c✨ 欢迎有志于AI的同学加入我们！', 'color:#ff2d95;font-size:1.1em;');
+    </script>
+</body>
+</html>
