@@ -4,27 +4,84 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI 研学社 - 探索人工智能的无限可能</title>
+<meta name="description" content="AI研学社 - 汇聚热爱人工智能的校园极客，一起探索AI的无限可能">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
-<link rel="preconnect" href="https://cdnjs.cloudflare.com">
-<link rel="stylesheet" href="css/main.css">
-<link rel="stylesheet" href="css/gallery.css">
-<link rel="stylesheet" href="css/responsive.css">
+
+<!-- Preconnect to CDN origins -->
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+
+<!-- ===== CRITICAL CSS (inlined for instant render) ===== -->
+<style>
+:root{--bg-deep:#080812;--blue:#00c6ff;--purple:#8b5cf6;--cyan:#00ffc8;--text-1:#f0f0f5;--text-2:#a0a0c0;--font-cn:'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg-deep);color:var(--text-1);font-family:var(--font-cn);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg-deep)}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--blue),var(--purple));border-radius:3px}
+#bg-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:-2;pointer-events:none}
+.cursor-glow{position:fixed;pointer-events:none;z-index:9999;width:500px;height:500px;border-radius:50%;background:radial-gradient(50% 50%,rgba(0,198,255,.12) 0%,rgba(139,92,246,.08) 30%,rgba(0,255,200,.03) 60%,transparent 70%);transform:translate(-50%,-50%);transition:opacity .3s;will-change:transform}
+.raster-overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;pointer-events:none;display:flex}
+.raster-strip{flex:1;min-width:28px;backdrop-filter:blur(50px);-webkit-backdrop-filter:blur(50px);mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.12) 30%,rgba(0,0,0,.12) 70%,transparent 100%)}
+nav{position:fixed;top:0;left:0;right:0;z-index:1000;padding:1.3rem 4rem;display:flex;justify-content:space-between;align-items:center;transition:all .45s cubic-bezier(.4,0,.2,1)}
+nav.scrolled{padding:.9rem 4rem;background:rgba(8,8,18,.82);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-bottom:1px solid rgba(255,255,255,.06);box-shadow:0 8px 40px rgba(0,0,0,.4)}
+.nav-logo{font-family:'Space Grotesk','Inter',sans-serif;font-size:1.6rem;font-weight:800;background:linear-gradient(135deg,var(--blue),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-1px;text-decoration:none}
+.nav-logo .dot{display:inline-block;width:7px;height:7px;background:var(--cyan);border-radius:50%;margin-left:2px;animation:pulse 1.5s ease-in-out infinite;vertical-align:super}
+.nav-links{display:flex;gap:2.2rem;list-style:none}
+.nav-links a{color:var(--text-2);text-decoration:none;font-size:.92rem;font-weight:500;letter-spacing:.5px;transition:color .25s;position:relative}
+.nav-links a:hover{color:#fff}
+.nav-links a::after{content:'';position:absolute;bottom:-6px;left:0;width:0;height:1.5px;background:var(--blue);box-shadow:0 0 12px var(--blue);transition:width .35s cubic-bezier(.4,0,.2,1)}
+.nav-links a:hover::after{width:100%}
+.nav-toggle{display:none;flex-direction:column;gap:5px;cursor:pointer;z-index:1001;background:none;border:none;padding:4px}
+.nav-toggle span{display:block;width:26px;height:2px;background:#fff;transition:all .25s;border-radius:2px}
+.nav-toggle.active span:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
+.nav-toggle.active span:nth-child(2){opacity:0}
+.nav-toggle.active span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px)}
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:0 2rem;position:relative}
+.hero-badge{display:inline-flex;align-items:center;gap:.6rem;padding:.55rem 1.3rem;border:1px solid rgba(0,198,255,.25);border-radius:50px;font-size:.82rem;color:var(--blue);background:rgba(0,198,255,.04);margin-bottom:2.5rem;letter-spacing:2px;animation:fadeInUp .8s ease-out;backdrop-filter:blur(8px)}
+.hero-badge .live-dot{width:7px;height:7px;background:var(--cyan);border-radius:50%;animation:pulse 1.5s ease-in-out infinite;box-shadow:0 0 10px var(--cyan)}
+.title-wrapper{position:relative;animation:fadeInUp .8s ease-out .15s both}
+.title-glow-layer{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:clamp(3rem,8vw,7rem);font-weight:900;letter-spacing:2px;white-space:nowrap;background:linear-gradient(135deg,var(--blue) 0%,var(--purple) 50%,var(--cyan) 100%);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:gradientShift 4s ease-in-out infinite;filter:blur(25px);opacity:.6;user-select:none}
+.title-above-layer{position:relative;font-size:clamp(3rem,8vw,7rem);font-weight:900;letter-spacing:2px;white-space:nowrap;background:linear-gradient(135deg,#fff 0%,var(--blue) 40%,var(--cyan) 100%);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:gradientShift 4s ease-in-out infinite}
+.hero-subtitle{font-size:clamp(1rem,2.3vw,1.35rem);color:var(--text-2);max-width:620px;margin:2rem 0 2.8rem;line-height:1.8;animation:fadeInUp .8s ease-out .3s both}
+.typewriter{color:var(--cyan);border-right:2px solid var(--cyan);animation:blink .8s step-end infinite;font-weight:500}
+.btn-group{display:flex;gap:1.2rem;flex-wrap:wrap;justify-content:center;animation:fadeInUp .8s ease-out .45s both}
+.btn{position:relative;padding:.95rem 2.4rem;border-radius:50px;font-size:1rem;font-weight:600;text-decoration:none;letter-spacing:.5px;overflow:hidden;transition:all .45s cubic-bezier(.4,0,.2,1);backdrop-filter:blur(10px);border:none;cursor:pointer;font-family:var(--font-cn)}
+.btn-primary{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;box-shadow:0 4px 30px rgba(0,198,255,.25)}
+.btn-outline{background:rgba(255,255,255,.03);color:var(--blue);border:1.5px solid rgba(0,198,255,.3)}
+.scroll-hint{position:absolute;bottom:2.5rem;display:flex;flex-direction:column;align-items:center;gap:.4rem;animation:fadeInUp .8s ease-out .9s both;color:var(--text-2);font-size:.75rem;letter-spacing:3px}
+.scroll-hint .line{width:1px;height:45px;background:linear-gradient(180deg,var(--blue),transparent);animation:scrollLine 2s ease-in-out infinite}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(35px)}to{opacity:1;transform:translateY(0)}}
+@keyframes gradientShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes blink{50%{border-color:transparent}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+@keyframes scrollLine{0%,100%{opacity:.2;transform:scaleY(.8)}50%{opacity:1;transform:scaleY(1.4)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.reveal{opacity:0;transform:translateY(45px);transition:all .9s cubic-bezier(.4,0,.2,1)}
+.reveal.on{opacity:1;transform:translateY(0)}
+.section-header{text-align:center;margin-bottom:4.5rem}
+.section-tag{font-family:'Space Grotesk','Inter',sans-serif;font-size:.72rem;letter-spacing:4px;text-transform:uppercase;color:var(--blue);margin-bottom:1.2rem;display:block}
+.section-title{font-size:clamp(2rem,5vw,3.4rem);font-weight:800;letter-spacing:1px;margin-bottom:1.2rem}
+.section-title .hl{background:linear-gradient(135deg,var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.section-line{width:70px;height:3px;background:linear-gradient(90deg,var(--blue),var(--purple));margin:0 auto;border-radius:2px}
+.section{padding:7rem 4rem;position:relative;z-index:1}
+@media(max-width:768px){nav{padding:1rem 1.5rem}.nav-links{display:none}.nav-toggle{display:flex}.section{padding:4rem 1.5rem}.hero{padding:0 1.5rem}.title-glow-layer{display:none}.cursor-glow{display:none}.btn-group{flex-direction:column;align-items:center}.btn{width:100%;max-width:300px;text-align:center}}
+</style>
+
+<!-- Non-critical CSS (async loaded) -->
+<link rel="preload" href="css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" href="css/gallery.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" href="css/responsive.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="css/main.css"><link rel="stylesheet" href="css/gallery.css"><link rel="stylesheet" href="css/responsive.css"></noscript>
 </head>
 <body>
 
-<!-- Canvas Background -->
 <canvas id="bg-canvas"></canvas>
-
-<!-- Cursor Glow -->
 <div class="cursor-glow" id="cursorGlow"></div>
-
-<!-- Raster Strips -->
 <div class="raster-overlay" id="rasterOverlay"></div>
-
-<!-- Floating Bubbles -->
 <div class="float-bubbles" id="floatBubbles"></div>
 
-<!-- ==================== NAVIGATION ==================== -->
 <nav id="navbar">
   <a href="#home" class="nav-logo">AI Lab<span class="dot"></span></a>
   <ul class="nav-links" id="navLinks">
@@ -35,250 +92,97 @@
     <li><a href="#members" data-nav>核心成员</a></li>
     <li><a href="#contact" data-nav>加入我们</a></li>
   </ul>
-  <button class="nav-toggle" id="navToggle" aria-label="Menu">
-    <span></span><span></span><span></span>
-  </button>
+  <button class="nav-toggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
 </nav>
 
-<!-- ==================== HERO ==================== -->
 <section class="hero" id="home">
-  <div class="hero-badge">
-    <span class="live-dot"></span> EXPLORE THE FUTURE OF AI
-  </div>
+  <div class="hero-badge"><span class="live-dot"></span> EXPLORE THE FUTURE OF AI</div>
   <div class="title-wrapper">
     <div class="title-glow-layer" aria-hidden="true">AI 研学社</div>
     <h1 class="title-above-layer">AI 研学社</h1>
   </div>
-  <p class="hero-subtitle">
-    汇聚热爱人工智能的校园极客<br>
-    <span class="typewriter" id="typewriter"></span>
-  </p>
+  <p class="hero-subtitle">汇聚热爱人工智能的校园极客<br><span class="typewriter" id="typewriter"></span></p>
   <div class="btn-group">
     <a href="#about" class="btn btn-primary magnetic">探索社团</a>
     <a href="#contact" class="btn btn-outline magnetic">立即加入</a>
   </div>
-  <div class="scroll-hint">
-    <span>SCROLL</span>
-    <div class="line"></div>
-  </div>
+  <div class="scroll-hint"><span>SCROLL</span><div class="line"></div></div>
 </section>
 
-<!-- ==================== ABOUT ==================== -->
 <section class="section" id="about">
-  <div class="section-header reveal">
-    <span class="section-tag">About Us</span>
-    <h2 class="section-title">关于<span class="hl">AI研学社</span></h2>
-    <div class="section-line"></div>
-  </div>
+  <div class="section-header reveal"><span class="section-tag">About Us</span><h2 class="section-title">关于<span class="hl">AI研学社</span></h2><div class="section-line"></div></div>
   <div class="about-grid">
-    <div class="glass-card reveal reveal-d1" data-tilt>
-      <div class="card-glow"></div>
-      <div class="card-icon float">🧠</div>
-      <h3>前沿技术探索</h3>
-      <p>深入探索大语言模型、计算机视觉、强化学习等AI前沿领域，每周举办技术分享会，与志同道合的伙伴一起学习最前沿的AI知识。</p>
-    </div>
-    <div class="glass-card reveal reveal-d2" data-tilt>
-      <div class="card-glow"></div>
-      <div class="card-icon float">💻</div>
-      <h3>实战项目驱动</h3>
-      <p>从零构建AI应用：智能聊天机器人、图像识别系统、NLP工具……在真实项目中锻炼工程能力，打造令人惊艳的作品集。</p>
-    </div>
-    <div class="glass-card reveal reveal-d3" data-tilt>
-      <div class="card-glow"></div>
-      <div class="card-icon float">🏆</div>
-      <h3>竞赛与交流</h3>
-      <p>组队参加各类AI竞赛、黑客松和学术会议，与全国高校AI社团联动交流，在实战中快速成长，积累宝贵经验。</p>
-    </div>
-    <div class="glass-card reveal reveal-d4" data-tilt>
-      <div class="card-glow"></div>
-      <div class="card-icon float">🤝</div>
-      <h3>开放共享社群</h3>
-      <p>无论你是AI小白还是资深玩家，这里都有你的一席之地。我们相信开放、分享、互助的力量，让每个人都能在AI浪潮中找到方向。</p>
-    </div>
+    <div class="glass-card reveal reveal-d1" data-tilt><div class="card-glow"></div><div class="card-icon float">🧠</div><h3>前沿技术探索</h3><p>深入探索大语言模型、计算机视觉、强化学习等AI前沿领域，每周举办技术分享会，与志同道合的伙伴一起学习最前沿的AI知识。</p></div>
+    <div class="glass-card reveal reveal-d2" data-tilt><div class="card-glow"></div><div class="card-icon float">💻</div><h3>实战项目驱动</h3><p>从零构建AI应用：智能聊天机器人、图像识别系统、NLP工具……在真实项目中锻炼工程能力，打造令人惊艳的作品集。</p></div>
+    <div class="glass-card reveal reveal-d3" data-tilt><div class="card-glow"></div><div class="card-icon float">🏆</div><h3>竞赛与交流</h3><p>组队参加各类AI竞赛、黑客松和学术会议，与全国高校AI社团联动交流，在实战中快速成长，积累宝贵经验。</p></div>
+    <div class="glass-card reveal reveal-d4" data-tilt><div class="card-glow"></div><div class="card-icon float">🤝</div><h3>开放共享社群</h3><p>无论你是AI小白还是资深玩家，这里都有你的一席之地。我们相信开放、分享、互助的力量，让每个人都能在AI浪潮中找到方向。</p></div>
   </div>
 </section>
 
-<!-- ==================== STATS ==================== -->
 <div class="stats-strip">
   <div class="stats-grid">
-    <div class="stat-item reveal">
-      <div class="stat-num" data-count="128">0<span class="plus">+</span></div>
-      <div class="stat-label">社团成员</div>
-    </div>
-    <div class="stat-item reveal reveal-d1">
-      <div class="stat-num" data-count="36">0</div>
-      <div class="stat-label">完成项目</div>
-    </div>
-    <div class="stat-item reveal reveal-d2">
-      <div class="stat-num" data-count="12">0</div>
-      <div class="stat-label">竞赛获奖</div>
-    </div>
-    <div class="stat-item reveal reveal-d3">
-      <div class="stat-num" data-count="52">0</div>
-      <div class="stat-label">技术讲座</div>
-    </div>
+    <div class="stat-item reveal"><div class="stat-num" data-count="128">0<span class="plus">+</span></div><div class="stat-label">社团成员</div></div>
+    <div class="stat-item reveal reveal-d1"><div class="stat-num" data-count="36">0</div><div class="stat-label">完成项目</div></div>
+    <div class="stat-item reveal reveal-d2"><div class="stat-num" data-count="12">0</div><div class="stat-label">竞赛获奖</div></div>
+    <div class="stat-item reveal reveal-d3"><div class="stat-num" data-count="52">0</div><div class="stat-label">技术讲座</div></div>
   </div>
 </div>
 
-<!-- ==================== GALLERY — 炫技图片展示 ==================== -->
 <section class="gallery-section" id="gallery">
-  <div class="section-header reveal">
-    <span class="section-tag">Gallery</span>
-    <h2 class="section-title">精彩<span class="hl">瞬间</span></h2>
-    <div class="section-line"></div>
-    <p style="color:var(--text-2);margin-top:1rem;font-size:0.9rem;">
-      点击图片查看高清大图 · 支持键盘左右切换
-    </p>
-  </div>
-
-  <!-- Filter Tabs (built by JS) -->
+  <div class="section-header reveal"><span class="section-tag">Gallery</span><h2 class="section-title">精彩<span class="hl">瞬间</span></h2><div class="section-line"></div><p style="color:var(--text-2);margin-top:1rem;font-size:.9rem">点击图片查看高清大图 · 支持键盘左右切换</p></div>
   <div class="gallery-filters"></div>
-
-  <!-- Image Stack Fan -->
-  <div class="section-header reveal" style="margin-top:3rem; margin-bottom:1.5rem;">
-    <span class="section-tag">Featured</span>
-  </div>
+  <div class="section-header reveal" style="margin-top:3rem;margin-bottom:1.5rem"><span class="section-tag">Featured</span></div>
   <div class="image-stack reveal"></div>
-
-  <!-- Masonry Grid (built by JS) -->
   <div class="masonry-grid"></div>
 </section>
 
-<!-- ==================== ACTIVITIES ==================== -->
 <section class="section" id="activities">
-  <div class="section-header reveal">
-    <span class="section-tag">Activities</span>
-    <h2 class="section-title">活动<span class="hl">风采</span></h2>
-    <div class="section-line"></div>
-  </div>
+  <div class="section-header reveal"><span class="section-tag">Activities</span><h2 class="section-title">活动<span class="hl">风采</span></h2><div class="section-line"></div></div>
   <div class="activities-wrap">
-    <div class="activity-row reveal">
-      <div class="activity-date">2024.12</div>
-      <div class="activity-info">
-        <h3>大模型应用开发 Workshop</h3>
-        <p>从 Prompt Engineering 到 RAG 架构，手把手教你构建基于大语言模型的智能应用。现场 Demo：AI 论文助手、智能代码审查工具。</p>
-        <span class="tag">Workshop</span>
-      </div>
-    </div>
-    <div class="activity-row reveal">
-      <div class="activity-date">2024.11</div>
-      <div class="activity-info">
-        <h3>AI 黑客松：48小时创新挑战</h3>
-        <p>主题"AI for Education"，参赛队伍在48小时内完成从创意到原型的全流程。冠军项目：基于多模态AI的盲文学习助手。</p>
-        <span class="tag">Hackathon</span>
-      </div>
-    </div>
-    <div class="activity-row reveal">
-      <div class="activity-date">2024.10</div>
-      <div class="activity-info">
-        <h3>Stable Diffusion 创意工坊</h3>
-        <p>从扩散模型原理到 ComfyUI 实战，探索 AI 绘画的无限创意可能。优秀作品在校园艺术展展出，引发广泛关注。</p>
-        <span class="tag">创意工坊</span>
-      </div>
-    </div>
-    <div class="activity-row reveal">
-      <div class="activity-date">2024.09</div>
-      <div class="activity-info">
-        <h3>新学期招新 & AI 入门讲座</h3>
-        <p>面向全校的 AI 入门分享，涵盖机器学习基础、Python 实战和 AI 行业趋势。现场互动问答，吸引200+同学参与。</p>
-        <span class="tag">讲座</span>
-      </div>
-    </div>
+    <div class="activity-row reveal"><div class="activity-date">2024.12</div><div class="activity-info"><h3>大模型应用开发 Workshop</h3><p>从 Prompt Engineering 到 RAG 架构，手把手教你构建基于大语言模型的智能应用。</p><span class="tag">Workshop</span></div></div>
+    <div class="activity-row reveal"><div class="activity-date">2024.11</div><div class="activity-info"><h3>AI 黑客松：48小时创新挑战</h3><p>主题"AI for Education"，48小时内完成从创意到原型的全流程。冠军项目：多模态AI盲文学习助手。</p><span class="tag">Hackathon</span></div></div>
+    <div class="activity-row reveal"><div class="activity-date">2024.10</div><div class="activity-info"><h3>Stable Diffusion 创意工坊</h3><p>从扩散模型原理到 ComfyUI 实战，探索 AI 绘画的无限创意可能。</p><span class="tag">创意工坊</span></div></div>
+    <div class="activity-row reveal"><div class="activity-date">2024.09</div><div class="activity-info"><h3>新学期招新 & AI 入门讲座</h3><p>面向全校的 AI 入门分享，涵盖机器学习基础、Python 实战和 AI 行业趋势。</p><span class="tag">讲座</span></div></div>
   </div>
 </section>
 
-<!-- ==================== MEMBERS ==================== -->
 <section class="section" id="members">
-  <div class="section-header reveal">
-    <span class="section-tag">Core Members</span>
-    <h2 class="section-title">核心<span class="hl">成员</span></h2>
-    <div class="section-line"></div>
-  </div>
-  <div class="members-grid">
-    <div class="member-card reveal reveal-d1" data-tilt>
-      <div class="member-avatar">
-        <img src="assets/images/team/member-01.jpg" alt="张同学" loading="lazy">
-      </div>
-      <h3>张同学</h3>
-      <div class="member-role">社长 / ML Lead</div>
-      <p class="member-bio">计算机科学大三，专注NLP方向，在ACL发表论文一篇。热爱开源，坚信AI应该服务于每一个人。</p>
-    </div>
-    <div class="member-card reveal reveal-d2" data-tilt>
-      <div class="member-avatar">
-        <img src="assets/images/team/member-02.jpg" alt="李同学" loading="lazy">
-      </div>
-      <h3>李同学</h3>
-      <div class="member-role">副社长 / CV Lead</div>
-      <p class="member-bio">人工智能方向研究生，研究方向为多模态大模型与视觉理解，曾获CVPR最佳论文提名。</p>
-    </div>
-    <div class="member-card reveal reveal-d3" data-tilt>
-      <div class="member-avatar">
-        <img src="assets/images/team/member-03.jpg" alt="王同学" loading="lazy">
-      </div>
-      <h3>王同学</h3>
-      <div class="member-role">创意总监 / AIGC Lead</div>
-      <p class="member-bio">数字媒体艺术专业，擅长AI绘画与视频生成。将技术与艺术完美融合，作品多次入选AI艺术展。</p>
-    </div>
-    <div class="member-card reveal reveal-d4" data-tilt>
-      <div class="member-avatar">
-        <img src="assets/images/team/member-04.jpg" alt="陈同学" loading="lazy">
-      </div>
-      <h3>陈同学</h3>
-      <div class="member-role">教学负责人</div>
-      <p class="member-bio">软件工程大二，从零自学AI两年，深知初学者的痛点。负责社团入门课程体系设计，耐心细致。</p>
-    </div>
-  </div>
+  <div class="section-header reveal"><span class="section-tag">Core Members</span><h2 class="section-title">核心<span class="hl">成员</span></h2><div class="section-line"></div></div>
+  <div class="members-grid" id="membersGrid"></div>
 </section>
 
-<!-- ==================== CONTACT ==================== -->
 <section class="section" id="contact">
-  <div class="section-header reveal">
-    <span class="section-tag">Join Us</span>
-    <h2 class="section-title">加入<span class="hl">我们</span></h2>
-    <div class="section-line"></div>
-  </div>
+  <div class="section-header reveal"><span class="section-tag">Join Us</span><h2 class="section-title">加入<span class="hl">我们</span></h2><div class="section-line"></div></div>
   <div class="contact-wrap reveal">
     <form id="contactForm">
-      <div class="form-group">
-        <input type="text" id="name" placeholder=" " required>
-        <label for="name">你的名字</label>
-      </div>
-      <div class="form-group">
-        <input type="email" id="email" placeholder=" " required>
-        <label for="email">电子邮箱</label>
-      </div>
-      <div class="form-group">
-        <textarea id="message" placeholder=" " required></textarea>
-        <label for="message">想说的话（自我介绍 / 感兴趣的AI方向 / 想参与的项目）</label>
-      </div>
-      <button type="submit" class="btn btn-primary magnetic">
-        发送申请 ✦
-      </button>
+      <div class="form-group"><input type="text" id="name" placeholder=" " required><label for="name">你的名字</label></div>
+      <div class="form-group"><input type="email" id="email" placeholder=" " required><label for="email">电子邮箱</label></div>
+      <div class="form-group"><textarea id="message" placeholder=" " required></textarea><label for="message">想说的话（自我介绍 / 感兴趣的AI方向 / 想参与的项目）</label></div>
+      <button type="submit" class="btn btn-primary magnetic">发送申请 ✦</button>
     </form>
     <div class="contact-meta">
-      <div class="meta-item">
-        <div class="meta-icon">📍</div><span>学生活动中心 301</span>
-      </div>
-      <div class="meta-item">
-        <div class="meta-icon">📧</div><span>ai-club@school.edu.cn</span>
-      </div>
-      <div class="meta-item">
-        <div class="meta-icon">🕐</div><span>每周五 19:00 例会</span>
-      </div>
+      <div class="meta-item"><div class="meta-icon">📍</div><span>学生活动中心 301</span></div>
+      <div class="meta-item"><div class="meta-icon">📧</div><span>ai-club@school.edu.cn</span></div>
+      <div class="meta-item"><div class="meta-icon">🕐</div><span>每周五 19:00 例会</span></div>
     </div>
   </div>
 </section>
 
-<!-- ==================== FOOTER ==================== -->
-<footer>
-  <p>© 2024 AI 研学社 · Crafted with <span class="heart">♥</span> by AI Lab Team</p>
-</footer>
+<footer><p>© 2024 AI 研学社 · Crafted with <span class="heart">♥</span> by AI Lab Team</p></footer>
 
-<!-- Scripts -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="js/background.js"></script>
-<script src="js/effects.js"></script>
-<script src="js/gallery.js"></script>
-<script src="js/main.js"></script>
+<!-- GSAP (async) -->
+<script>
+window.GSAP_LOADED = false;
+var gsapScript = document.createElement('script');
+gsapScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js';
+gsapScript.async = true;
+gsapScript.onload = function(){ window.GSAP_LOADED = true; };
+document.head.appendChild(gsapScript);
+</script>
+<!-- All app scripts deferred -->
+<script defer src="js/background.js"></script>
+<script defer src="js/effects.js"></script>
+<script defer src="js/gallery.js"></script>
+<script defer src="js/main.js"></script>
 </body>
 </html>

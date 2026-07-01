@@ -1,0 +1,23 @@
+# Cloudflare Pages Headers — Cache Optimization
+# Place this file in your deploy root
+
+# Images: cache for 1 year (versioned by filename)
+/assets/images/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# CSS & JS: cache for 1 week (use cache-busting filenames in production)
+/css/*
+  Cache-Control: public, max-age=604800
+
+/js/*
+  Cache-Control: public, max-age=604800
+
+# HTML: short cache, revalidate
+/index.html
+  Cache-Control: public, max-age=3600, must-revalidate
+
+# Security headers
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
