@@ -507,144 +507,703 @@
   function initGame() {
     var canvas = $('#gameCanvas');
     var startBtn = $('#gameStart');
-    if (!canvas || !startBtn) return;
+    var pulseBtn = $('#gamePulse');
+    var dashBtn = $('#gameDash');
+    var fullscreenBtn = $('#gameFullscreen');
+    var gameCard = canvas.closest('.game-card');
+    if (!canvas || !startBtn || !pulseBtn || !dashBtn || !fullscreenBtn || !gameCard) return;
     var ctx = canvas.getContext('2d');
     var scoreEl = $('#scoreValue');
+    var comboEl = $('#comboValue');
+    var waveEl = $('#waveValue');
     var lifeEl = $('#lifeValue');
+    var pulseEl = $('#pulseValue');
+    var dashEl = $('#dashValue');
     var bestEl = $('#bestValue');
-    var levelEl = $('#levelValue');
     var stateEl = $('#gameState');
     var levelButtons = $$('#difficultyPanel button');
     var levels = {
-      easy: { label: '简单', speed: 0.76, spawn: 1.02, lives: 5, scoreRate: 2, color: '#00ffbf' },
-      normal: { label: '普通', speed: 1.0, spawn: 0.76, lives: 3, scoreRate: 3, color: '#00eaff' },
-      hard: { label: '困难', speed: 1.36, spawn: 0.54, lives: 3, scoreRate: 4, color: '#ffb14a' },
-      insane: { label: '地狱', speed: 1.76, spawn: 0.36, lives: 2, scoreRate: 6, color: '#ff3f68' }
+      easy: { label: '简单', speed: 0.88, spawn: 0.98, lives: 5, scoreRate: 2.4, pulseGain: 9, waveTime: 14, color: '#00ffbf' },
+      normal: { label: '普通', speed: 1.0, spawn: 0.76, lives: 3, scoreRate: 3.3, pulseGain: 10.5, waveTime: 12.5, color: '#00eaff' },
+      hard: { label: '困难', speed: 1.26, spawn: 0.58, lives: 3, scoreRate: 4.5, pulseGain: 11.5, waveTime: 11.6, color: '#ffb14a' },
+      insane: { label: '地狱', speed: 1.54, spawn: 0.42, lives: 2, scoreRate: 6.2, pulseGain: 13, waveTime: 10.5, color: '#ff3f68' }
     };
     var currentLevel = 'normal';
     var best = 0;
-    var running = false, over = false, last = 0, spawn = 0, scoreFloat = 0, score = 0, lives = levels.normal.lives, shield = 0, grace = 0, runId = 0;
+    var running = false;
+    var over = false;
+    var last = 0;
+    var spawnTimer = 0;
+    var scoreFloat = 0;
+    var score = 0;
+    var lives = levels.normal.lives;
+    var shield = 0;
+    var grace = 0;
+    var runId = 0;
+    var wave = 1;
+    var waveClock = 0;
+    var combo = 0;
+    var comboTimer = 0;
+    var pulse = 0;
+    var pulseFlash = 0;
+    var dashCooldown = 0;
+    var pulseBurst = 0;
     var keys = {};
-    var player = { x: canvas.width / 2, y: canvas.height / 2, r: 15, speed: 292 };
-    var nodes = [];
-    function bestKey() { return 'neuralDodgeBest_' + currentLevel; }
+    var pointer = { x: canvas.width / 2, y: canvas.height / 2, active: false };
+    var player = { x: canvas.width / 2, y: canvas.height / 2, r: 16, speed: 312, faceX: 1, faceY: 0 };
+    var hazards = [];
+    var pickups = [];
+    var particles = [];
+    var rings = [];
+
+    function bestKey() { return 'neuralDodgeOverclockBest_' + currentLevel; }
     function readBest() { best = Number(localStorage.getItem(bestKey()) || 0); }
     function level() { return levels[currentLevel] || levels.normal; }
+    function multiplier() { return 1 + Math.min(3, combo * 0.14); }
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+
+    function syncFullscreenButton() {
+      var active = document.fullscreenElement === gameCard;
+      gameCard.classList.toggle('is-fullscreen', active);
+      fullscreenBtn.textContent = active ? '退出全屏' : '全屏';
+    }
+
+    function toggleFullscreen() {
+      if (document.fullscreenElement === gameCard) {
+        if (document.exitFullscreen) document.exitFullscreen();
+        return;
+      }
+      if (gameCard.requestFullscreen) gameCard.requestFullscreen();
+    }
+
+    function movePointerToClient(clientX, clientY) {
+      var r = canvas.getBoundingClientRect();
+      pointer.x = clamp((clientX - r.left) / r.width * canvas.width, player.r, canvas.width - player.r);
+      pointer.y = clamp((clientY - r.top) / r.height * canvas.height, player.r, canvas.height - player.r);
+      pointer.active = true;
+    }
+
+    function addParticles(x, y, color, count, speed) {
+      for (var i = 0; i < count; i++) {
+        var a = Math.random() * Math.PI * 2;
+        var s = speed * (0.35 + Math.random() * 0.85);
+        particles.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.26 + Math.random() * 0.38, max: 0.56, color: color, size: 1.5 + Math.random() * 3.5 });
+      }
+    }
+
+    function addRing(x, y, color, radius, life) {
+      rings.push({ x: x, y: y, color: color, radius: radius || 30, max: radius || 220, life: life || 0.5, maxLife: life || 0.5 });
+    }
+
+    function updateHud(state) {
+      if (scoreEl) scoreEl.textContent = score;
+      if (comboEl) comboEl.textContent = 'x' + multiplier().toFixed(1);
+      if (waveEl) waveEl.textContent = String(wave);
+      if (lifeEl) lifeEl.textContent = lives;
+      if (pulseEl) pulseEl.textContent = Math.floor(clamp(pulse, 0, 100)) + '%';
+      if (dashEl) dashEl.textContent = dashCooldown <= 0 ? '就绪' : dashCooldown.toFixed(1) + 's';
+      if (bestEl) bestEl.textContent = best;
+      if (stateEl) stateEl.textContent = state || (running ? '运行中 · ' + level().label + ' · WAVE ' + wave : '待机 · ' + level().label + '难度');
+      startBtn.textContent = running ? '重新开始' : over ? '再玩一局' : '开始游戏';
+      pulseBtn.disabled = !running || pulse < 100;
+      dashBtn.disabled = !running || dashCooldown > 0;
+    }
+
     function setLevel(next) {
       if (!levels[next]) return;
       currentLevel = next;
       readBest();
       lives = running ? lives : level().lives;
       levelButtons.forEach(function (btn) { btn.classList.toggle('active', btn.dataset.level === currentLevel); });
-      updateHud(running ? '运行中 · ' + level().label + '难度' : '待机 · ' + level().label + '难度');
+      updateHud(running ? '运行中 · ' + level().label + ' · WAVE ' + wave : '待机 · ' + level().label + '难度');
       draw(performance.now());
     }
-    function reset() {
-      running = true; over = false; runId += 1; last = performance.now(); spawn = 0.55; scoreFloat = 0; score = 0; lives = level().lives; shield = 0; grace = 1.4;
-      player.x = canvas.width / 2; player.y = canvas.height / 2; nodes = [];
-      updateHud('运行中 · ' + level().label + '难度');
-      requestAnimationFrame(function (now) { loop(now, runId); });
+
+    function gainScore(value) {
+      scoreFloat += value * multiplier();
+      score = Math.floor(scoreFloat);
+      if (score > best) best = score;
     }
-    function updateHud(state) {
-      if (scoreEl) scoreEl.textContent = score;
-      if (lifeEl) lifeEl.textContent = lives;
-      if (bestEl) bestEl.textContent = best;
-      if (levelEl) levelEl.textContent = level().label;
-      if (stateEl) stateEl.textContent = state || (running ? '运行中 · ' + level().label + '难度' : '待机 · ' + level().label + '难度');
-      startBtn.textContent = running ? '重新开始' : over ? '再玩一局' : '开始游戏';
+
+    function spawnPickup(forceType) {
+      var types = ['good', 'good', 'good', 'shield', 'charge'];
+      if (lives < level().lives && Math.random() < 0.16) types.push('heal');
+      var type = forceType || types[Math.floor(Math.random() * types.length)];
+      pickups.push({
+        x: 50 + Math.random() * (canvas.width - 100),
+        y: 50 + Math.random() * (canvas.height - 100),
+        r: type === 'heal' ? 11 : type === 'shield' ? 10 : 9,
+        type: type,
+        rot: Math.random() * Math.PI * 2,
+        ttl: 7.5 + Math.random() * 2.5
+      });
     }
-    function endGame() {
-      running = false; over = true; runId += 1;
-      if (score > best) { best = score; localStorage.setItem(bestKey(), String(best)); }
-      updateHud('已结束 · ' + level().label + '难度');
-      showToast(level().label + '难度，本局分数：' + score);
-      draw(performance.now());
-    }
-    function addNode() {
+
+    function spawnHazard(kind) {
       var cfg = level();
       var edge = Math.floor(Math.random() * 4);
-      var roll = Math.random();
-      var n = {
-        x: edge === 0 ? -24 : edge === 1 ? canvas.width + 24 : Math.random() * canvas.width,
-        y: edge === 2 ? -24 : edge === 3 ? canvas.height + 24 : Math.random() * canvas.height,
-        r: 9 + Math.random() * 12,
-        type: roll < (currentLevel === 'insane' ? 0.78 : 0.68) ? 'bad' : roll < 0.86 ? 'shield' : 'good',
-        vx: 0, vy: 0, rot: Math.random() * Math.PI
-      };
-      var angle = Math.atan2(player.y - n.y, player.x - n.x) + (Math.random() - 0.5) * (currentLevel === 'insane' ? 0.54 : 0.85);
-      var speed = ((n.type === 'bad' ? 92 : 70) + Math.min(130, score * 0.2) + Math.random() * 42) * cfg.speed;
-      n.vx = Math.cos(angle) * speed; n.vy = Math.sin(angle) * speed; nodes.push(n);
+      var x = edge === 0 ? -28 : edge === 1 ? canvas.width + 28 : Math.random() * canvas.width;
+      var y = edge === 2 ? -28 : edge === 3 ? canvas.height + 28 : Math.random() * canvas.height;
+      var angle = Math.atan2(player.y - y, player.x - x);
+      var waveBoost = 1 + (wave - 1) * 0.08;
+      var hazard = { x: x, y: y, vx: 0, vy: 0, rot: Math.random() * Math.PI * 2, near: false, kind: kind || 'seeker', elite: false };
+      if (hazard.kind === 'runner') {
+        hazard.r = 8 + Math.random() * 3;
+        hazard.speed = (162 + Math.random() * 34) * cfg.speed * waveBoost;
+      } else if (hazard.kind === 'brute') {
+        hazard.r = 18 + Math.random() * 7;
+        hazard.speed = (88 + Math.random() * 20) * cfg.speed * waveBoost;
+        hazard.elite = true;
+      } else if (hazard.kind === 'orbit') {
+        hazard.r = 11 + Math.random() * 4;
+        hazard.speed = (126 + Math.random() * 28) * cfg.speed * waveBoost;
+      } else {
+        hazard.kind = 'seeker';
+        hazard.r = 11 + Math.random() * 5;
+        hazard.speed = (108 + Math.random() * 32) * cfg.speed * waveBoost;
+      }
+      hazard.vx = Math.cos(angle) * hazard.speed;
+      hazard.vy = Math.sin(angle) * hazard.speed;
+      hazards.push(hazard);
     }
-    function loop(now, id) {
-      if (!running || id !== runId) return;
-      var dt = Math.min(0.033, (now - last) / 1000 || 0.016);
-      last = now; update(dt); draw(now);
-      requestAnimationFrame(function (next) { loop(next, id); });
+
+    function destroyHazard(index, bonus) {
+      var h = hazards[index];
+      if (!h) return;
+      addParticles(h.x, h.y, h.elite ? '#ffb14a' : '#ff3f68', h.elite ? 16 : 10, h.elite ? 170 : 130);
+      gainScore(bonus || (h.elite ? 12 : 7));
+      hazards.splice(index, 1);
     }
-    function update(dt) {
-      var cfg = level();
-      var dx = 0, dy = 0;
+
+    function usePulse() {
+      if (!running || pulse < 100) return;
+      pulse = 0;
+      pulseFlash = 0.34;
+      pulseBurst = 0.42;
+      addRing(player.x, player.y, '#00eaff', 34, 0.42);
+      addParticles(player.x, player.y, '#00eaff', 24, 210);
+      var destroyed = 0;
+      for (var i = hazards.length - 1; i >= 0; i--) {
+        var h = hazards[i];
+        var dist = Math.hypot(h.x - player.x, h.y - player.y);
+        if (dist < 220 + h.r) {
+          destroyHazard(i, h.elite ? 18 : 12);
+          destroyed += 1;
+        }
+      }
+      if (destroyed > 0) {
+        combo += destroyed;
+        comboTimer = Math.max(comboTimer, 3.6);
+        showToast('脉冲清场 +' + destroyed);
+      } else {
+        gainScore(6);
+        showToast('脉冲已释放');
+      }
+      updateHud();
+    }
+
+    function useDash() {
+      if (!running || dashCooldown > 0) return;
+      var dx = 0;
+      var dy = 0;
       if (keys.ArrowLeft || keys.a || keys.A) dx -= 1;
       if (keys.ArrowRight || keys.d || keys.D) dx += 1;
       if (keys.ArrowUp || keys.w || keys.W) dy -= 1;
       if (keys.ArrowDown || keys.s || keys.S) dy += 1;
-      if (dx || dy) { var len = Math.hypot(dx, dy) || 1; player.x += dx / len * player.speed * dt; player.y += dy / len * player.speed * dt; }
-      player.x = Math.max(player.r, Math.min(canvas.width - player.r, player.x));
-      player.y = Math.max(player.r, Math.min(canvas.height - player.r, player.y));
+      if (!dx && !dy) {
+        dx = pointer.active ? pointer.x - player.x : player.faceX;
+        dy = pointer.active ? pointer.y - player.y : player.faceY;
+      }
+      var len = Math.hypot(dx, dy) || 1;
+      dx /= len;
+      dy /= len;
+      player.faceX = dx;
+      player.faceY = dy;
+      addParticles(player.x, player.y, '#8a5cff', 18, 190);
+      player.x = clamp(player.x + dx * 110, player.r, canvas.width - player.r);
+      player.y = clamp(player.y + dy * 110, player.r, canvas.height - player.r);
+      dashCooldown = 2.6;
+      grace = Math.max(grace, 0.34);
+      shield = Math.max(shield, 0.18);
+      gainScore(4);
+      addRing(player.x, player.y, '#8a5cff', 26, 0.28);
+      for (var i = hazards.length - 1; i >= 0; i--) {
+        if (Math.hypot(hazards[i].x - player.x, hazards[i].y - player.y) < 38 + hazards[i].r) destroyHazard(i, 9);
+      }
+      updateHud();
+    }
+
+    function reset() {
+      running = true;
+      over = false;
+      runId += 1;
+      last = performance.now();
+      spawnTimer = 0.52;
+      scoreFloat = 0;
+      score = 0;
+      lives = level().lives;
+      shield = 0;
+      grace = 1.3;
+      wave = 1;
+      waveClock = 0;
+      combo = 0;
+      comboTimer = 0;
+      pulse = 34;
+      pulseFlash = 0;
+      pulseBurst = 0;
+      dashCooldown = 0;
+      hazards = [];
+      pickups = [];
+      particles = [];
+      rings = [];
+      player.x = canvas.width / 2;
+      player.y = canvas.height / 2;
+      player.faceX = 1;
+      player.faceY = 0;
+      spawnPickup('good');
+      updateHud('运行中 · ' + level().label + ' · WAVE 1');
+      requestAnimationFrame(function (now) { loop(now, runId); });
+    }
+
+    function endGame() {
+      running = false;
+      over = true;
+      runId += 1;
+      if (score > best) {
+        best = score;
+        localStorage.setItem(bestKey(), String(best));
+      }
+      updateHud('已结束 · ' + level().label + ' · WAVE ' + wave);
+      showToast(level().label + '难度，本局 ' + score + ' 分');
+      draw(performance.now());
+    }
+
+    function loop(now, id) {
+      if (!running || id !== runId) return;
+      var dt = Math.min(0.033, (now - last) / 1000 || 0.016);
+      last = now;
+      update(dt);
+      draw(now);
+      requestAnimationFrame(function (next) { loop(next, id); });
+    }
+
+    function update(dt) {
+      var cfg = level();
+      var dx = 0;
+      var dy = 0;
+      if (keys.ArrowLeft || keys.a || keys.A) dx -= 1;
+      if (keys.ArrowRight || keys.d || keys.D) dx += 1;
+      if (keys.ArrowUp || keys.w || keys.W) dy -= 1;
+      if (keys.ArrowDown || keys.s || keys.S) dy += 1;
+      if (dx || dy) {
+        var len = Math.hypot(dx, dy) || 1;
+        player.x += dx / len * player.speed * dt;
+        player.y += dy / len * player.speed * dt;
+        player.faceX = dx / len;
+        player.faceY = dy / len;
+      } else if (pointer.active) {
+        var mx = pointer.x - player.x;
+        var my = pointer.y - player.y;
+        var dist = Math.hypot(mx, my);
+        if (dist > 1) {
+          var step = Math.min(dist, player.speed * 1.06 * dt);
+          player.x += mx / dist * step;
+          player.y += my / dist * step;
+          player.faceX = mx / dist;
+          player.faceY = my / dist;
+        }
+      }
+
+      player.x = clamp(player.x, player.r, canvas.width - player.r);
+      player.y = clamp(player.y, player.r, canvas.height - player.r);
       shield = Math.max(0, shield - dt);
       grace = Math.max(0, grace - dt);
-      spawn -= dt;
-      if (spawn <= 0) { addNode(); if (currentLevel === 'hard' || currentLevel === 'insane') addNode(); spawn = Math.max(currentLevel === 'insane' ? 0.13 : 0.18, cfg.spawn - score * 0.0024); }
-      nodes.forEach(function (n) { n.x += n.vx * dt; n.y += n.vy * dt; n.rot += dt * (n.type === 'bad' ? 3.2 : 2); });
-      nodes = nodes.filter(function (n) { return n.x > -80 && n.x < canvas.width + 80 && n.y > -80 && n.y < canvas.height + 80; });
-      for (var i = nodes.length - 1; i >= 0; i--) {
-        var n = nodes[i];
-        if (Math.hypot(n.x - player.x, n.y - player.y) < n.r + player.r) {
-          if (n.type === 'good') scoreFloat += 10;
-          else if (n.type === 'shield') { shield = 4.8; scoreFloat += 4; }
-          else { if (shield > 0 || grace > 0) scoreFloat += 5; else lives -= 1; }
-          nodes.splice(i, 1); score = Math.floor(scoreFloat);
-          if (lives <= 0) return endGame();
+      comboTimer = Math.max(0, comboTimer - dt);
+      if (comboTimer <= 0 && combo > 0) combo = 0;
+      dashCooldown = Math.max(0, dashCooldown - dt);
+      pulseFlash = Math.max(0, pulseFlash - dt);
+      pulseBurst = Math.max(0, pulseBurst - dt);
+      pulse = clamp(pulse + dt * cfg.pulseGain, 0, 100);
+
+      waveClock += dt;
+      if (waveClock >= cfg.waveTime) {
+        wave += 1;
+        waveClock = 0;
+        pulse = clamp(pulse + 14, 0, 100);
+        addRing(canvas.width * 0.5, canvas.height * 0.5, cfg.color, 60, 0.55);
+        showToast('Wave ' + wave + ' 已到来');
+      }
+
+      spawnTimer -= dt;
+      if (spawnTimer <= 0) {
+        var pack = 1;
+        if (currentLevel === 'hard' || currentLevel === 'insane' || wave >= 4) pack += 1;
+        if (wave >= 6 && Math.random() < 0.3) pack += 1;
+        for (var s = 0; s < pack; s++) {
+          var roll = Math.random();
+          var kind = roll < 0.54 ? 'seeker' : roll < 0.76 ? 'runner' : roll < 0.92 ? 'orbit' : 'brute';
+          spawnHazard(kind);
+        }
+        if (Math.random() < 0.28) spawnPickup();
+        spawnTimer = Math.max(currentLevel === 'insane' ? 0.16 : 0.22, cfg.spawn / (1 + (wave - 1) * 0.12) - score * 0.00065);
+      }
+
+      hazards.forEach(function (h, idx) {
+        var tx = player.x - h.x;
+        var ty = player.y - h.y;
+        var targetAngle = Math.atan2(ty, tx);
+        if (h.kind === 'seeker' || h.kind === 'brute') {
+          var steer = h.kind === 'brute' ? 0.018 : 0.03;
+          h.vx += Math.cos(targetAngle) * h.speed * steer;
+          h.vy += Math.sin(targetAngle) * h.speed * steer;
+        } else if (h.kind === 'orbit') {
+          h.vx += Math.cos(targetAngle + Math.sin((last + idx * 30) * 0.003) * 0.8) * h.speed * 0.024;
+          h.vy += Math.sin(targetAngle + Math.sin((last + idx * 30) * 0.003) * 0.8) * h.speed * 0.024;
+        }
+        var vlen = Math.hypot(h.vx, h.vy) || 1;
+        var maxSpeed = h.speed * (h.kind === 'runner' ? 1.05 : 1);
+        h.vx = h.vx / vlen * maxSpeed;
+        h.vy = h.vy / vlen * maxSpeed;
+        h.x += h.vx * dt;
+        h.y += h.vy * dt;
+        h.rot += dt * (h.kind === 'runner' ? 7.5 : h.kind === 'brute' ? 1.6 : 4.2);
+      });
+      hazards = hazards.filter(function (h) { return h.x > -120 && h.x < canvas.width + 120 && h.y > -120 && h.y < canvas.height + 120; });
+
+      pickups.forEach(function (p, idx) {
+        p.rot += dt * 2.2;
+        p.ttl -= dt;
+        p.y += Math.sin((last + idx * 90) * 0.0024) * 0.15;
+      });
+      pickups = pickups.filter(function (p) { return p.ttl > 0; });
+
+      particles.forEach(function (p) {
+        p.life -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+      });
+      particles = particles.filter(function (p) { return p.life > 0; });
+
+      rings.forEach(function (r) {
+        r.life -= dt;
+        r.radius += (r.max - r.radius) * 0.16;
+      });
+      rings = rings.filter(function (r) { return r.life > 0; });
+
+      for (var i = hazards.length - 1; i >= 0; i--) {
+        var h = hazards[i];
+        var dist = Math.hypot(h.x - player.x, h.y - player.y);
+        if (!h.near && dist < h.r + player.r + 24 && dist > h.r + player.r + 6) {
+          h.near = true;
+          pulse = clamp(pulse + 2.4, 0, 100);
+          comboTimer = Math.max(comboTimer, 1.2);
+          gainScore(2);
+        }
+        if (dist < h.r + player.r) {
+          if (shield > 0 || grace > 0) {
+            destroyHazard(i, h.elite ? 16 : 10);
+            comboTimer = Math.max(comboTimer, 2.2);
+            pulse = clamp(pulse + 4, 0, 100);
+          } else {
+            lives -= h.elite ? 2 : 1;
+            combo = 0;
+            comboTimer = 0;
+            grace = 1.1;
+            pulse = Math.max(0, pulse - 18);
+            addParticles(player.x, player.y, '#ffffff', 18, 160);
+            hazards.splice(i, 1);
+            if (lives <= 0) return endGame();
+          }
           updateHud();
         }
       }
-      scoreFloat += dt * cfg.scoreRate; score = Math.floor(scoreFloat); if (score > best) best = score; updateHud();
+
+      for (var j = pickups.length - 1; j >= 0; j--) {
+        var p = pickups[j];
+        if (Math.hypot(p.x - player.x, p.y - player.y) < p.r + player.r + 3) {
+          if (p.type === 'good') {
+            combo += 1;
+            comboTimer = 3.4;
+            pulse = clamp(pulse + 9, 0, 100);
+            gainScore(12);
+            addParticles(p.x, p.y, '#00ffbf', 12, 140);
+          } else if (p.type === 'shield') {
+            shield = 5;
+            pulse = clamp(pulse + 6, 0, 100);
+            gainScore(9);
+            addParticles(p.x, p.y, '#8a5cff', 14, 150);
+          } else if (p.type === 'charge') {
+            pulse = clamp(pulse + 30, 0, 100);
+            comboTimer = Math.max(comboTimer, 2.2);
+            gainScore(10);
+            addParticles(p.x, p.y, '#ffb14a', 14, 160);
+          } else if (p.type === 'heal') {
+            lives = Math.min(level().lives, lives + 1);
+            gainScore(14);
+            addParticles(p.x, p.y, '#ffffff', 14, 150);
+          }
+          pickups.splice(j, 1);
+          updateHud();
+        }
+      }
+
+      scoreFloat += dt * cfg.scoreRate * multiplier();
+      score = Math.floor(scoreFloat);
+      if (score > best) best = score;
+      updateHud();
     }
-    function draw(t) {
+
+    function drawPickup(p) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      var color = p.type === 'good' ? '#00ffbf' : p.type === 'shield' ? '#8a5cff' : p.type === 'charge' ? '#ffb14a' : '#ffffff';
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 18;
+      ctx.strokeStyle = 'rgba(255,255,255,.82)';
+      ctx.fillStyle = color;
+      ctx.lineWidth = 1.2;
+      if (p.type === 'good') {
+        ctx.beginPath();
+        ctx.arc(0, 0, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.type === 'shield') {
+        ctx.beginPath();
+        for (var i = 0; i < 6; i++) {
+          var a = Math.PI / 3 * i;
+          var px = Math.cos(a) * p.r;
+          var py = Math.sin(a) * p.r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+      } else if (p.type === 'charge') {
+        ctx.beginPath();
+        for (var j = 0; j < 8; j++) {
+          var angle = Math.PI / 4 * j;
+          var rr = j % 2 === 0 ? p.r : p.r * 0.42;
+          var sx = Math.cos(angle) * rr;
+          var sy = Math.sin(angle) * rr;
+          if (j === 0) ctx.moveTo(sx, sy);
+          else ctx.lineTo(sx, sy);
+        }
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(0, -p.r);
+        ctx.lineTo(p.r * 0.9, 0);
+        ctx.lineTo(0, p.r);
+        ctx.lineTo(-p.r * 0.9, 0);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawHazard(h) {
+      ctx.save();
+      ctx.translate(h.x, h.y);
+      ctx.rotate(h.rot);
+      var color = h.elite ? '#ffb14a' : h.kind === 'runner' ? '#ff7c4d' : '#ff3f68';
+      ctx.shadowColor = color;
+      ctx.shadowBlur = h.elite ? 28 : 18;
+      ctx.fillStyle = color;
+      ctx.strokeStyle = 'rgba(255,255,255,.7)';
+      ctx.lineWidth = 1.1;
+      if (h.kind === 'runner') {
+        ctx.beginPath();
+        ctx.moveTo(0, -h.r * 1.2);
+        ctx.lineTo(h.r, h.r);
+        ctx.lineTo(-h.r, h.r);
+        ctx.closePath();
+      } else if (h.kind === 'brute') {
+        ctx.beginPath();
+        ctx.rect(-h.r, -h.r, h.r * 2, h.r * 2);
+      } else if (h.kind === 'orbit') {
+        ctx.beginPath();
+        ctx.ellipse(0, 0, h.r * 1.18, h.r * 0.8, Math.PI / 4, 0, Math.PI * 2);
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(0, -h.r);
+        ctx.lineTo(h.r, 0);
+        ctx.lineTo(0, h.r);
+        ctx.lineTo(-h.r, 0);
+        ctx.closePath();
+      }
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function draw(now) {
       var cfg = level();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      var g = ctx.createRadialGradient(canvas.width * 0.5, canvas.height * 0.48, 0, canvas.width * 0.5, canvas.height * 0.48, canvas.width * 0.74);
-      g.addColorStop(0, 'rgba(0,234,255,.12)'); g.addColorStop(0.46, 'rgba(102,80,255,.06)'); g.addColorStop(1, 'rgba(2,4,14,.98)');
-      ctx.fillStyle = g; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = 'rgba(0,234,255,.08)'; ctx.lineWidth = 1;
-      var offset = (t || 0) * 0.018 % 38;
-      for (var x = -38 + offset; x < canvas.width; x += 38) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 30, canvas.height); ctx.stroke(); }
-      for (var y = -38 + offset; y < canvas.height; y += 38) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
-      ctx.fillStyle = cfg.color; ctx.font = '800 13px system-ui'; ctx.textAlign = 'left'; ctx.fillText('LEVEL / ' + cfg.label, 18, 30);
-      nodes.forEach(function (n) {
-        ctx.save(); ctx.translate(n.x, n.y); ctx.rotate(n.rot);
-        var color = n.type === 'bad' ? '#ff3f68' : n.type === 'shield' ? '#8a5cff' : '#00ffbf';
-        ctx.shadowColor = color; ctx.shadowBlur = 22; ctx.fillStyle = color; ctx.beginPath();
-        if (n.type === 'bad') ctx.rect(-n.r, -n.r, n.r * 2, n.r * 2); else ctx.arc(0, 0, n.r, 0, Math.PI * 2);
-        ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+      var g = ctx.createRadialGradient(canvas.width * 0.5, canvas.height * 0.48, 0, canvas.width * 0.5, canvas.height * 0.48, canvas.width * 0.78);
+      g.addColorStop(0, pulseFlash > 0 ? 'rgba(0,234,255,.2)' : 'rgba(0,234,255,.12)');
+      g.addColorStop(0.46, 'rgba(102,80,255,.08)');
+      g.addColorStop(1, 'rgba(2,4,14,.98)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = 'rgba(0,234,255,.08)';
+      ctx.lineWidth = 1;
+      var offset = (now || 0) * 0.018 % 38;
+      for (var x = -38 + offset; x < canvas.width; x += 38) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + 32, canvas.height);
+        ctx.stroke();
+      }
+      for (var y = -38 + offset; y < canvas.height; y += 38) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      rings.forEach(function (r) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, r.life / r.maxLife) * 0.65;
+        ctx.strokeStyle = r.color;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
       });
-      ctx.save(); ctx.translate(player.x, player.y);
-      var pulse = 1 + Math.sin((t || 0) * 0.012) * 0.08;
-      ctx.shadowColor = shield > 0 ? '#8a5cff' : cfg.color; ctx.shadowBlur = shield > 0 ? 36 : 26;
-      ctx.fillStyle = cfg.color; ctx.beginPath(); ctx.arc(0, 0, player.r * pulse, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = shield > 0 ? 'rgba(138,92,255,.95)' : grace > 0 ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.72)'; ctx.lineWidth = shield > 0 || grace > 0 ? 4 : 2;
-      ctx.beginPath(); ctx.arc(0, 0, player.r + (shield > 0 ? 11 : 6), 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-      if (over) { ctx.fillStyle = 'rgba(0,0,0,.48)'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#fff'; ctx.font = '900 34px system-ui'; ctx.textAlign = 'center'; ctx.fillText('再来一局？', canvas.width / 2, canvas.height / 2 - 6); ctx.fillStyle = '#a9f8ff'; ctx.font = '600 16px system-ui'; ctx.fillText(level().label + '难度 · ' + score + ' 分', canvas.width / 2, canvas.height / 2 + 28); }
+
+      pickups.forEach(drawPickup);
+      hazards.forEach(drawHazard);
+
+      particles.forEach(function (p) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life / p.max);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      var pulseScale = 1 + Math.sin((now || 0) * 0.012) * 0.08;
+      ctx.shadowColor = shield > 0 ? '#8a5cff' : cfg.color;
+      ctx.shadowBlur = shield > 0 ? 38 : 24;
+      var grad = ctx.createRadialGradient(-6, -6, 2, 0, 0, player.r * 1.5);
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.25, cfg.color);
+      grad.addColorStop(1, 'rgba(3,8,20,.2)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, player.r * pulseScale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = shield > 0 ? 'rgba(138,92,255,.98)' : grace > 0 ? 'rgba(255,255,255,.98)' : 'rgba(255,255,255,.74)';
+      ctx.lineWidth = shield > 0 || grace > 0 ? 4 : 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, player.r + (shield > 0 ? 12 : 7), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.rotate(Math.atan2(player.faceY, player.faceX));
+      ctx.fillStyle = 'rgba(255,255,255,.88)';
+      ctx.beginPath();
+      ctx.moveTo(player.r + 5, 0);
+      ctx.lineTo(player.r - 8, -6);
+      ctx.lineTo(player.r - 8, 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      ctx.fillStyle = cfg.color;
+      ctx.font = '800 13px system-ui';
+      ctx.textAlign = 'left';
+      ctx.fillText('LEVEL / ' + cfg.label, 18, 30);
+      ctx.fillText('WAVE / ' + wave, 18, 50);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(255,255,255,.8)';
+      ctx.fillText('MULTI ' + multiplier().toFixed(1) + 'x', canvas.width - 18, 30);
+      ctx.fillText('PULSE ' + Math.floor(pulse) + '%', canvas.width - 18, 50);
+
+      if (!running && !over) {
+        ctx.fillStyle = 'rgba(0,0,0,.42)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = '900 30px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('Neural Dodge // Overclock', canvas.width / 2, canvas.height / 2 - 18);
+        ctx.fillStyle = '#b7f7ff';
+        ctx.font = '600 16px system-ui';
+        ctx.fillText('开始后持续躲避追猎体，收集数据核叠加倍率', canvas.width / 2, canvas.height / 2 + 16);
+      }
+
+      if (over) {
+        ctx.fillStyle = 'rgba(0,0,0,.52)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = '900 34px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('再来一局？', canvas.width / 2, canvas.height / 2 - 6);
+        ctx.fillStyle = '#a9f8ff';
+        ctx.font = '600 16px system-ui';
+        ctx.fillText(level().label + ' · WAVE ' + wave + ' · ' + score + ' 分', canvas.width / 2, canvas.height / 2 + 28);
+      }
     }
-    levelButtons.forEach(function (btn) { btn.addEventListener('click', function () { setLevel(btn.dataset.level); if (running) reset(); }); });
+
+    levelButtons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        setLevel(btn.dataset.level);
+        if (running) reset();
+      });
+    });
     startBtn.addEventListener('click', reset);
-    window.addEventListener('keydown', function (e) { keys[e.key] = true; if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key) >= 0) e.preventDefault(); }, { passive: false });
+    pulseBtn.addEventListener('click', usePulse);
+    dashBtn.addEventListener('click', useDash);
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+    document.addEventListener('fullscreenchange', syncFullscreenButton);
+
+    window.addEventListener('keydown', function (e) {
+      keys[e.key] = true;
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'q', 'Q'].indexOf(e.key) >= 0) e.preventDefault();
+      if (e.key === ' ' || e.code === 'Space') useDash();
+      if (e.key === 'q' || e.key === 'Q') usePulse();
+    }, { passive: false });
     window.addEventListener('keyup', function (e) { keys[e.key] = false; });
-    function pointerMove(e) { var r = canvas.getBoundingClientRect(); var p = e.touches ? e.touches[0] : e; player.x = (p.clientX - r.left) / r.width * canvas.width; player.y = (p.clientY - r.top) / r.height * canvas.height; }
-    canvas.addEventListener('pointermove', function (e) { if (running && e.buttons) pointerMove(e); });
-    canvas.addEventListener('pointerdown', function (e) { canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); if (!running) reset(); pointerMove(e); });
-    canvas.addEventListener('touchmove', function (e) { if (running) { e.preventDefault(); pointerMove(e); } }, { passive: false });
-    readBest(); setLevel('normal');
+
+    function pointerMove(e) {
+      var p = e.touches ? e.touches[0] : e;
+      movePointerToClient(p.clientX, p.clientY);
+    }
+
+    canvas.addEventListener('pointerenter', function (e) { pointerMove(e); });
+    canvas.addEventListener('pointermove', function (e) { if (running) pointerMove(e); });
+    canvas.addEventListener('pointerdown', function (e) {
+      canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+      if (!running) reset();
+      pointerMove(e);
+    });
+    document.addEventListener('pointermove', function (e) {
+      if (running && pointer.active) movePointerToClient(e.clientX, e.clientY);
+    });
+    document.addEventListener('mousemove', function (e) {
+      if (running && pointer.active) movePointerToClient(e.clientX, e.clientY);
+    });
+    window.addEventListener('blur', function () { if (!running) pointer.active = false; });
+    canvas.addEventListener('touchstart', function (e) { if (!running) reset(); pointerMove(e); }, { passive: true });
+    canvas.addEventListener('touchmove', function (e) {
+      if (running) {
+        e.preventDefault();
+        pointerMove(e);
+      }
+    }, { passive: false });
+
+    readBest();
+    setLevel('normal');
+    syncFullscreenButton();
+    draw(performance.now());
   }
 
   function boot() {

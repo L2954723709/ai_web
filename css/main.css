@@ -25,3 +25,35 @@ body:after{content:"";position:fixed;inset:0;z-index:-2;background:repeating-lin
 @media (max-width:1050px){.hero-grid,.game-layout,.video-grid,.section-head{grid-template-columns:1fr}.hero-stage{min-height:520px}.photo-orbit{height:520px}.cinema-stage{grid-template-columns:1fr;min-height:auto}.cinema-main{min-height:560px}.cinema-side{grid-template-columns:repeat(4,1fr);grid-template-rows:140px}.video-wall{grid-template-columns:1fr 1fr}.video-frame.featured{grid-column:1/-1;grid-row:auto}.lab-grid,.timeline,.members-grid{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:680px){.hero-stage{min-height:430px}.photo-orbit{height:430px}.orbit-card.is-main{left:2%;top:10%;width:82%;height:54%}.orbit-card:not(.is-main):nth-child(2){width:45%;height:24%}.orbit-card:nth-child(3){width:48%;height:24%;bottom:18%}.orbit-card:nth-child(4){width:54%;height:26%;right:0}.orbit-core{width:130px;height:130px}.cinema-stage{padding:10px;border-radius:28px}.cinema-main{min-height:430px;border-radius:22px}.cinema-glass{left:12px;right:12px;bottom:12px;padding:14px;border-radius:18px}.cinema-glass strong{font-size:21px}.cinema-side{grid-template-columns:repeat(2,1fr);grid-template-rows:120px 120px}.photo-marquee:before,.photo-marquee:after{width:50px}.marquee-tile{width:170px;height:110px}.video-wall{grid-template-columns:1fr}.video-frame,.video-frame.featured{min-height:210px}.game-hud{grid-template-columns:1fr}.game-topbar{align-items:stretch;flex-direction:column}.game-topbar .btn{width:100%}}
 @media (prefers-reduced-motion:reduce){.marquee-track{animation:none}.photo-orbit,.orbit-card,.orbit-card img,.orbit-core,.cinema-main img,.float-photo{animation:none!important}}
+
+
+/* === Game upgrade v4 === */
+.game-layout{display:grid;grid-template-columns:minmax(320px,.45fr) minmax(0,.55fr);gap:28px;align-items:start}
+.game-copy{display:grid;gap:16px;align-content:start}
+.game-copy p{max-width:520px}
+.game-badges,.game-tipbar{display:flex;flex-wrap:wrap;gap:10px}
+.game-badges span,.game-tipbar span{display:inline-flex;align-items:center;min-height:38px;padding:9px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.045);color:#d8f5ff;font-size:12px;letter-spacing:.04em;box-shadow:inset 0 1px rgba(255,255,255,.04)}
+.game-card{padding:18px;border-radius:34px}
+.game-topbar{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:14px}
+.game-status strong{display:block;font-size:22px;letter-spacing:-.03em}.game-status span{display:block;margin-top:6px;color:#9db2d4;font-size:13px}
+.game-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.game-actions .btn{min-width:128px}
+#gameCanvas{display:block;width:100%;height:auto;border-radius:28px;border:1px solid rgba(255,255,255,.1);background:radial-gradient(circle at 50% 50%,rgba(0,234,255,.1),rgba(3,6,16,.98));box-shadow:inset 0 0 0 1px rgba(255,255,255,.02),0 24px 80px rgba(0,0,0,.35)}
+.game-hud-extended{grid-template-columns:repeat(7,minmax(0,1fr));margin-top:14px}.game-hud strong{display:block;margin-top:6px;font-size:20px;color:#fff}.game-hud span{min-height:72px;align-content:center}
+.game-tipbar{margin-top:14px}.game-tipbar span{background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.03))}
+#gamePulse[disabled],#gameDash[disabled]{opacity:.45;cursor:not-allowed;filter:saturate(.55)}
+@media (max-width:1050px){.game-layout{grid-template-columns:1fr}.game-copy p{max-width:none}.game-hud-extended{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:680px){.game-topbar{flex-direction:column;align-items:stretch}.game-actions{justify-content:stretch}.game-actions .btn{width:100%;min-width:0}.game-hud-extended{grid-template-columns:repeat(2,minmax(0,1fr))}.game-badges span,.game-tipbar span{width:100%;justify-content:center}}
+
+
+/* === Game controls cleanup v5 === */
+.game-copy p,.game-tipbar{display:none!important}
+.game-copy{gap:12px}
+.game-badges{margin-top:6px}
+.game-actions{align-items:center}
+.game-actions .btn{min-width:124px}
+#gameCanvas{touch-action:none;cursor:auto}
+.game-card.is-fullscreen{display:grid;grid-template-rows:auto 1fr auto;padding:24px;border-radius:0!important;width:100vw;height:100vh;max-width:none;background:radial-gradient(circle at 50% 20%,rgba(18,32,82,.72),rgba(4,8,20,.96))}
+.game-card.is-fullscreen #gameCanvas{height:100%;max-height:none}
+.game-card.is-fullscreen .game-hud{margin-top:12px}
+@media (max-width:680px){.game-actions .btn{width:100%}}
+
