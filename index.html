@@ -10,7 +10,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='30' fill='%23040610'/%3E%3Cpath d='M24 72c18-42 62-46 72-14 9 28-36 49-56 24-12-16 9-36 31-22' fill='none' stroke='%2300eaff' stroke-width='9' stroke-linecap='round'/%3E%3Ccircle cx='82' cy='34' r='8' fill='%23ff4df8'/%3E%3C/svg%3E">
   <link rel="preload" href="assets/videos/neural-loop-poster.webp" as="image" type="image/webp" fetchpriority="high">
   <link rel="preload" href="assets/images/gallery/thumbs/gallery-01-thumb.webp" as="image" type="image/webp">
-  <link rel="stylesheet" href="css/main.css?v=20260706-15">
+  <link rel="stylesheet" href="css/main.css?v=20260706-29">
 </head>
 <body>
   <canvas id="neuralBg" aria-hidden="true"></canvas>
@@ -127,10 +127,28 @@
         <div class="section-head reveal">
           <span class="kicker">HOLO GALLERY</span>
           <h2>影像墙</h2>
-          <p>记录每一次灵感与现场</p>
         </div>
-        <div class="gallery-toolbar reveal" id="galleryFilters" role="tablist" aria-label="影像分类"></div>
-        <div class="holo-gallery" id="galleryGrid" aria-live="polite"></div>
+        <div class="memory-orbit-scene reveal" id="memoryOrbit" aria-label="3D影像环">
+          <div class="memory-orbit-slides" data-memory-slides aria-hidden="true"></div>
+          <div class="memory-orbit-bg" aria-hidden="true"></div>
+          <div class="memory-orbit-controls" aria-label="缩放控制">
+            <button type="button" data-memory-zoom="out" aria-label="缩小">−</button>
+            <button type="button" data-memory-zoom="in" aria-label="放大">＋</button>
+          </div>
+          <div class="memory-orbit-stage" data-memory-stage>
+            <div class="memory-orbit-particles" data-memory-particles aria-hidden="true"></div>
+            <div class="memory-orbit-lane lane-top" data-memory-lane="0"></div>
+            <div class="memory-orbit-lane lane-mid" data-memory-lane="1"></div>
+            <div class="memory-orbit-lane lane-bottom" data-memory-lane="2"></div>
+            <div class="memory-orbit-core" aria-hidden="true"><img src="assets/images/ai-core.webp" alt=""></div>
+          </div>
+          <button class="memory-orbit-home" type="button" data-memory-home aria-label="重置视角">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 11.1 12 4l8.6 7.1-1.5 1.8-1.1-.9v7.6h-4.7v-5h-2.6v5H6V12l-1.1.9-1.5-1.8Z"/></svg>
+          </button>
+          <button class="memory-orbit-orb" type="button" data-memory-orb aria-label="拖动控制视角">
+            <span></span>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -241,7 +259,7 @@
   </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script defer src="js/app.js?v=20260706-15"></script>
+  <script defer src="js/app.js?v=20260706-29"></script>
 </body>
 </html>
 

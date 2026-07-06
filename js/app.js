@@ -402,6 +402,228 @@
     render();
   }
 
+
+  function initMemoryOrbit() {
+    var scene = $('#memoryOrbit');
+    if (!scene || !galleryData || !galleryData.length) return;
+    buildLightbox();
+    var stage = $('[data-memory-stage]', scene);
+    var slides = $('[data-memory-slides]', scene);
+    var lanes = $$('[data-memory-lane]', scene);
+    var orb = $('[data-memory-orb]', scene);
+    var home = $('[data-memory-home]', scene);
+    var particles = $('[data-memory-particles]', scene);
+    if (!stage || !lanes.length) return;
+
+    var isSmall = window.matchMedia('(max-width: 700px)').matches;
+    var radiusScale = 1;
+    var drumAngles = [0, 0, 0];
+    var viewRx = isSmall ? -5 : -6;
+    var viewRy = 0;
+    var drumLast = 0;
+    var drumRaf = 0;
+    var activeBg = 0;
+
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+
+    function rowItems(row) {
+      var count = isSmall ? 9 : 12;
+      var offset = row * 4;
+      var list = [];
+      for (var i = 0; i < count; i++) list.push(galleryData[(offset + i) % galleryData.length]);
+      return list;
+    }
+
+    function baseRadius() {
+      var width = scene.clientWidth || window.innerWidth;
+      var base = isSmall ? width * 0.34 : width * 0.36;
+      return clamp(base * radiusScale, isSmall ? 150 : 290, isSmall ? 330 : 670);
+    }
+
+    function laneY(row) {
+      return (row - 1) * (isSmall ? 92 : 124);
+    }
+
+    function applyLaneTransform(lane, row) {
+      var y = lane.style.getPropertyValue('--lane-y') || '0px';
+      var angle = drumAngles[row];
+      lane.style.transform = 'translate3d(0,' + y + ',0) rotateY(' + angle.toFixed(3) + 'deg)';
+    }
+
+    function applyAllLanes() {
+      lanes.forEach(function (lane, row) { applyLaneTransform(lane, row); });
+    }
+
+    function applyStageView() {
+      stage.style.setProperty('--view-rx', viewRx.toFixed(2) + 'deg');
+      stage.style.setProperty('--view-ry', viewRy.toFixed(2) + 'deg');
+      if (orb) {
+        orb.style.setProperty('--orb-rx', (-viewRx).toFixed(2) + 'deg');
+        orb.style.setProperty('--orb-ry', viewRy.toFixed(2) + 'deg');
+      }
+    }
+
+    function resetStageView() {
+      viewRx = isSmall ? -5 : -6;
+      viewRy = 0;
+      applyStageView();
+      stage.animate([
+        { filter: 'drop-shadow(0 0 0 rgba(0,245,255,0))' },
+        { filter: 'drop-shadow(0 0 32px rgba(0,245,255,.55))' },
+        { filter: 'drop-shadow(0 0 0 rgba(0,245,255,0))' }
+      ], { duration: 520, easing: 'ease-out' });
+    }
+
+    function buildParticles() {
+      if (!particles || particles.children.length) return;
+      var total = 42;
+      for (var i = 0; i < total; i++) {
+        var dot = document.createElement('i');
+        var ring = i % 3;
+        dot.style.setProperty('--a', (i * 360 / total).toFixed(2) + 'deg');
+        dot.style.setProperty('--r', (ring === 0 ? 158 : ring === 1 ? 194 : 232) + 'px');
+        dot.style.setProperty('--z', ((i % 7) - 3) * 16 + 'px');
+        dot.style.setProperty('--s', (ring === 0 ? 4 : ring === 1 ? 3 : 2) + 'px');
+        dot.style.setProperty('--d', (-i * 0.16).toFixed(2) + 's');
+        particles.appendChild(dot);
+      }
+    }
+
+    function tickDrum(now) {
+      if (!drumLast) drumLast = now;
+      var dt = Math.min(48, now - drumLast) / 1000;
+      drumLast = now;
+      var speeds = isSmall ? [-18, 22, -18] : [-14, 18, -14];
+      lanes.forEach(function (lane, row) {
+        drumAngles[row] = (drumAngles[row] + speeds[row] * dt) % 360;
+        applyLaneTransform(lane, row);
+      });
+      var core = $('.memory-orbit-core', scene);
+      if (core) core.style.setProperty('--core-spin', ((now * 0.018) % 360).toFixed(2) + 'deg');
+      drumRaf = requestAnimationFrame(tickDrum);
+    }
+
+    function setBackground(index) {
+      if (!slides) return;
+      var imgs = $$('img', slides);
+      if (!imgs.length) return;
+      activeBg = (index + imgs.length) % imgs.length;
+      imgs.forEach(function (img, i) { img.classList.toggle('is-on', i === activeBg); });
+    }
+
+    function buildSlides() {
+      if (!slides || slides.children.length) return;
+      galleryData.slice(0, 6).forEach(function (item, i) {
+        var img = document.createElement('img');
+        img.src = toWebp(item.src);
+        img.onerror = function () { imgFallback(img, item.src); };
+        img.alt = '';
+        img.loading = i < 2 ? 'eager' : 'lazy';
+        img.decoding = 'async';
+        if (i === 0) img.className = 'is-on';
+        slides.appendChild(img);
+      });
+      window.setInterval(function () { setBackground(activeBg + 1); }, 3600);
+    }
+
+    function setZoom(nextScale) {
+      radiusScale = clamp(nextScale, 0.78, 1.28);
+      var radius = baseRadius();
+      lanes.forEach(function (lane) {
+        lane.style.setProperty('--drum-radius', radius.toFixed(1) + 'px');
+        $$('.memory-orbit-card', lane).forEach(function (card) {
+          card.style.setProperty('--radius', radius.toFixed(1) + 'px');
+        });
+      });
+    }
+
+    function buildLane(lane, row) {
+      var items = rowItems(row);
+      var radius = baseRadius();
+      lane.innerHTML = '';
+      lane.style.setProperty('--lane-y', laneY(row) + 'px');
+      lane.style.setProperty('--drum-radius', radius.toFixed(1) + 'px');
+      lane.classList.toggle('reverse', row === 1);
+      items.forEach(function (item, i) {
+        var index = galleryData.indexOf(item);
+        var card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'memory-orbit-card';
+        card.setAttribute('aria-label', item.title);
+        card.style.setProperty('--angle', (i * 360 / items.length).toFixed(2) + 'deg');
+        card.style.setProperty('--radius', radius.toFixed(1) + 'px');
+        card.innerHTML = '<img loading="lazy" decoding="async" alt="">';
+        var img = $('img', card);
+        img.src = item.thumb || toWebp(item.src);
+        img.alt = item.title;
+        card.addEventListener('pointerenter', function () { setBackground(index); });
+        card.addEventListener('focus', function () { setBackground(index); });
+        card.addEventListener('click', function () { setBackground(index); openLightbox(index); });
+        lane.appendChild(card);
+      });
+      applyLaneTransform(lane, row);
+    }
+
+    function build() {
+      isSmall = window.matchMedia('(max-width: 700px)').matches;
+      lanes.forEach(buildLane);
+      setZoom(radiusScale);
+      viewRx = clamp(viewRx, isSmall ? -24 : -32, isSmall ? 18 : 24);
+      applyAllLanes();
+      applyStageView();
+    }
+
+    $$('[data-memory-zoom]', scene).forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        setZoom(radiusScale + (btn.dataset.memoryZoom === 'in' ? 0.08 : -0.08));
+        scene.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.006)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
+      });
+    });
+
+    if (home) home.addEventListener('click', resetStageView);
+
+    if (orb) {
+      var orbDragging = false;
+      var orbX = 0;
+      var orbY = 0;
+      function endOrbDrag() {
+        orbDragging = false;
+        orb.classList.remove('is-dragging');
+      }
+      orb.addEventListener('pointerdown', function (e) {
+        orbDragging = true;
+        orbX = e.clientX;
+        orbY = e.clientY;
+        orb.classList.add('is-dragging');
+        if (orb.setPointerCapture) orb.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      });
+      orb.addEventListener('pointermove', function (e) {
+        if (!orbDragging) return;
+        var dx = e.clientX - orbX;
+        var dy = e.clientY - orbY;
+        orbX = e.clientX;
+        orbY = e.clientY;
+        viewRy = (viewRy + dx * 0.24) % 360;
+        viewRx = clamp(viewRx - dy * 0.2, isSmall ? -24 : -32, isSmall ? 18 : 24);
+        applyStageView();
+        e.preventDefault();
+      });
+      orb.addEventListener('pointerup', endOrbDrag);
+      orb.addEventListener('pointercancel', endOrbDrag);
+      orb.addEventListener('lostpointercapture', endOrbDrag);
+      orb.addEventListener('dblclick', resetStageView);
+    }
+
+    window.addEventListener('resize', build, { passive: true });
+    buildSlides();
+    buildParticles();
+    build();
+    cancelAnimationFrame(drumRaf);
+    drumLast = 0;
+    drumRaf = requestAnimationFrame(tickDrum);
+  }
+
   function buildLightbox() {
     if ($('#lightbox')) return;
     var box = document.createElement('div');
@@ -1422,6 +1644,7 @@
     initPointerEffects();
     initNeuralBackground();
     initGallery();
+    initMemoryOrbit();
     initShowcase();
     initVideoWall();
     initMembers();
