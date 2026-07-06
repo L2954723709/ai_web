@@ -510,7 +510,13 @@
     var pulseBtn = $('#gamePulse');
     var dashBtn = $('#gameDash');
     var fullscreenBtn = $('#gameFullscreen');
-    var gameCard = canvas.closest('.game-card');
+    var mobilePulseBtn = $('#mobilePulseBtn');
+    var mobileDashBtn = $('#mobileDashBtn');
+    var mobileExitBtn = $('#mobileExitBtn');
+    var joystickZone = $('#joystickZone');
+    var joystickStick = $('#joystickStick');
+    var gameCard = canvas ? canvas.closest('.game-card') : null;
+    var gameSection = canvas ? canvas.closest('.game-section') : null;
     if (!canvas || !startBtn || !pulseBtn || !dashBtn || !fullscreenBtn || !gameCard) return;
     var ctx = canvas.getContext('2d');
     var scoreEl = $('#scoreValue');
@@ -548,40 +554,109 @@
     var pulseFlash = 0;
     var dashCooldown = 0;
     var pulseBurst = 0;
+    var damageFlash = 0;
+    var boostFlash = 0;
+    var hitFlashTimer = 0;
     var keys = {};
     var pointer = { x: canvas.width / 2, y: canvas.height / 2, active: false };
+    var joystick = { active: false, pointerId: null, dx: 0, dy: 0, mag: 0 };
     var player = { x: canvas.width / 2, y: canvas.height / 2, r: 16, speed: 312, faceX: 1, faceY: 0 };
     var hazards = [];
     var pickups = [];
     var particles = [];
     var rings = [];
 
-    function bestKey() { return 'neuralDodgeOverclockBest_' + currentLevel; }
+    function bestKey() { return 'lightCoreDodgeBest_' + currentLevel; }
     function readBest() { best = Number(localStorage.getItem(bestKey()) || 0); }
     function level() { return levels[currentLevel] || levels.normal; }
     function multiplier() { return 1 + Math.min(3, combo * 0.14); }
     function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
 
+    function fullscreenElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+    function isTouchLayout() { return window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 900; }
+    function isMobileFullscreen() { return fullscreenElement() === gameCard && isTouchLayout(); }
+
+    function setReadyClasses(pulseReady, dashReady) {
+      gameCard.classList.toggle('pulse-ready', !!pulseReady);
+      gameCard.classList.toggle('dash-ready', !!dashReady);
+      [pulseBtn, mobilePulseBtn].forEach(function (btn) { if (btn) btn.classList.toggle('is-ready', !!pulseReady); });
+      [dashBtn, mobileDashBtn].forEach(function (btn) { if (btn) btn.classList.toggle('is-ready', !!dashReady); });
+    }
+
+    function setJoystickVisual(dx, dy) {
+      if (!joystickStick) return;
+      joystickStick.style.transform = 'translate3d(' + (dx * 46) + 'px,' + (dy * 46) + 'px,0)';
+    }
+
+    function resetJoystick() {
+      joystick.active = false;
+      joystick.pointerId = null;
+      joystick.dx = 0;
+      joystick.dy = 0;
+      joystick.mag = 0;
+      setJoystickVisual(0, 0);
+    }
+
+    function triggerHitFlash(strength) {
+      damageFlash = Math.max(damageFlash, strength || 0.8);
+      hitFlashTimer = 0.34;
+      gameCard.classList.add('is-hit');
+      clearTimeout(triggerHitFlash.timer);
+      triggerHitFlash.timer = setTimeout(function () { gameCard.classList.remove('is-hit'); }, 360);
+    }
+
     function syncFullscreenButton() {
-      var active = document.fullscreenElement === gameCard;
+      var active = fullscreenElement() === gameCard;
+      var mobileActive = active && isTouchLayout();
       gameCard.classList.toggle('is-fullscreen', active);
+      gameCard.classList.toggle('is-mobile-fullscreen', mobileActive);
+      if (gameSection) {
+        gameSection.classList.toggle('is-game-fullscreen', active);
+        gameSection.classList.toggle('is-game-mobile-fullscreen', mobileActive);
+      }
       fullscreenBtn.textContent = active ? '退出全屏' : '全屏';
+      if (mobileExitBtn) mobileExitBtn.hidden = !active;
+      if (!mobileActive) resetJoystick();
+      draw(performance.now());
     }
 
     function toggleFullscreen() {
-      if (document.fullscreenElement === gameCard) {
+      if (fullscreenElement() === gameCard) {
         if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         return;
       }
-      if (gameCard.requestFullscreen) gameCard.requestFullscreen();
+      if (gameCard.requestFullscreen) gameCard.requestFullscreen().catch(function () {});
+      else if (gameCard.webkitRequestFullscreen) gameCard.webkitRequestFullscreen();
     }
 
     function movePointerToClient(clientX, clientY) {
+      if (isMobileFullscreen()) return;
       var r = canvas.getBoundingClientRect();
       pointer.x = clamp((clientX - r.left) / r.width * canvas.width, player.r, canvas.width - player.r);
       pointer.y = clamp((clientY - r.top) / r.height * canvas.height, player.r, canvas.height - player.r);
       pointer.active = true;
+    }
+
+    function updateJoystickFromClient(clientX, clientY) {
+      if (!joystickZone) return;
+      var r = joystickZone.getBoundingClientRect();
+      var cx = r.left + r.width / 2;
+      var cy = r.top + r.height / 2;
+      var rawX = clientX - cx;
+      var rawY = clientY - cy;
+      var radius = Math.max(28, Math.min(r.width, r.height) * 0.36);
+      var len = Math.hypot(rawX, rawY);
+      joystick.mag = clamp(len / radius, 0, 1);
+      if (len > 1) {
+        joystick.dx = rawX / len * joystick.mag;
+        joystick.dy = rawY / len * joystick.mag;
+      } else {
+        joystick.dx = 0;
+        joystick.dy = 0;
+      }
+      setJoystickVisual(joystick.dx, joystick.dy);
     }
 
     function addParticles(x, y, color, count, speed) {
@@ -597,6 +672,8 @@
     }
 
     function updateHud(state) {
+      var pulseReady = running && pulse >= 100;
+      var dashReady = running && dashCooldown <= 0;
       if (scoreEl) scoreEl.textContent = score;
       if (comboEl) comboEl.textContent = 'x' + multiplier().toFixed(1);
       if (waveEl) waveEl.textContent = String(wave);
@@ -606,8 +683,11 @@
       if (bestEl) bestEl.textContent = best;
       if (stateEl) stateEl.textContent = state || (running ? '运行中 · ' + level().label + ' · WAVE ' + wave : '待机 · ' + level().label + '难度');
       startBtn.textContent = running ? '重新开始' : over ? '再玩一局' : '开始游戏';
-      pulseBtn.disabled = !running || pulse < 100;
-      dashBtn.disabled = !running || dashCooldown > 0;
+      pulseBtn.disabled = !pulseReady;
+      dashBtn.disabled = !dashReady;
+      if (mobilePulseBtn) mobilePulseBtn.disabled = !pulseReady;
+      if (mobileDashBtn) mobileDashBtn.disabled = !dashReady;
+      setReadyClasses(pulseReady, dashReady);
     }
 
     function setLevel(next) {
@@ -681,6 +761,7 @@
       pulse = 0;
       pulseFlash = 0.34;
       pulseBurst = 0.42;
+      boostFlash = 0.42;
       addRing(player.x, player.y, '#00eaff', 34, 0.42);
       addParticles(player.x, player.y, '#00eaff', 24, 210);
       var destroyed = 0;
@@ -711,6 +792,10 @@
       if (keys.ArrowRight || keys.d || keys.D) dx += 1;
       if (keys.ArrowUp || keys.w || keys.W) dy -= 1;
       if (keys.ArrowDown || keys.s || keys.S) dy += 1;
+      if (!dx && !dy && isMobileFullscreen() && joystick.mag > 0.08) {
+        dx = joystick.dx;
+        dy = joystick.dy;
+      }
       if (!dx && !dy) {
         dx = pointer.active ? pointer.x - player.x : player.faceX;
         dy = pointer.active ? pointer.y - player.y : player.faceY;
@@ -724,6 +809,7 @@
       player.x = clamp(player.x + dx * 110, player.r, canvas.width - player.r);
       player.y = clamp(player.y + dy * 110, player.r, canvas.height - player.r);
       dashCooldown = 2.6;
+      boostFlash = 0.36;
       grace = Math.max(grace, 0.34);
       shield = Math.max(shield, 0.18);
       gainScore(4);
@@ -753,6 +839,9 @@
       pulseFlash = 0;
       pulseBurst = 0;
       dashCooldown = 0;
+      damageFlash = 0;
+      boostFlash = 0;
+      hitFlashTimer = 0;
       hazards = [];
       pickups = [];
       particles = [];
@@ -774,6 +863,7 @@
         best = score;
         localStorage.setItem(bestKey(), String(best));
       }
+      setReadyClasses(false, false);
       updateHud('已结束 · ' + level().label + ' · WAVE ' + wave);
       showToast(level().label + '难度，本局 ' + score + ' 分');
       draw(performance.now());
@@ -796,13 +886,18 @@
       if (keys.ArrowRight || keys.d || keys.D) dx += 1;
       if (keys.ArrowUp || keys.w || keys.W) dy -= 1;
       if (keys.ArrowDown || keys.s || keys.S) dy += 1;
+      if (!dx && !dy && isMobileFullscreen() && joystick.active && joystick.mag > 0.08) {
+        dx = joystick.dx;
+        dy = joystick.dy;
+      }
       if (dx || dy) {
         var len = Math.hypot(dx, dy) || 1;
-        player.x += dx / len * player.speed * dt;
-        player.y += dy / len * player.speed * dt;
+        var mobileBoost = isMobileFullscreen() && joystick.active ? Math.max(0.46, joystick.mag) : 1;
+        player.x += dx / len * player.speed * mobileBoost * dt;
+        player.y += dy / len * player.speed * mobileBoost * dt;
         player.faceX = dx / len;
         player.faceY = dy / len;
-      } else if (pointer.active) {
+      } else if (pointer.active && !isMobileFullscreen()) {
         var mx = pointer.x - player.x;
         var my = pointer.y - player.y;
         var dist = Math.hypot(mx, my);
@@ -824,6 +919,10 @@
       dashCooldown = Math.max(0, dashCooldown - dt);
       pulseFlash = Math.max(0, pulseFlash - dt);
       pulseBurst = Math.max(0, pulseBurst - dt);
+      damageFlash = Math.max(0, damageFlash - dt * 1.8);
+      boostFlash = Math.max(0, boostFlash - dt * 1.7);
+      hitFlashTimer = Math.max(0, hitFlashTimer - dt);
+      if (hitFlashTimer <= 0) gameCard.classList.remove('is-hit');
       pulse = clamp(pulse + dt * cfg.pulseGain, 0, 100);
 
       waveClock += dt;
@@ -831,8 +930,8 @@
         wave += 1;
         waveClock = 0;
         pulse = clamp(pulse + 14, 0, 100);
+        boostFlash = 0.32;
         addRing(canvas.width * 0.5, canvas.height * 0.5, cfg.color, 60, 0.55);
-        showToast('Wave ' + wave + ' 已到来');
       }
 
       spawnTimer -= dt;
@@ -912,7 +1011,10 @@
             combo = 0;
             comboTimer = 0;
             grace = 1.1;
+            damageFlash = 1;
+            triggerHitFlash(h.elite ? 1 : 0.72);
             pulse = Math.max(0, pulse - 18);
+            addRing(player.x, player.y, '#ff3f68', 28, 0.34);
             addParticles(player.x, player.y, '#ffffff', 18, 160);
             hazards.splice(i, 1);
             if (lives <= 0) return endGame();
@@ -924,6 +1026,7 @@
       for (var j = pickups.length - 1; j >= 0; j--) {
         var p = pickups[j];
         if (Math.hypot(p.x - player.x, p.y - player.y) < p.r + player.r + 3) {
+          boostFlash = 0.22;
           if (p.type === 'good') {
             combo += 1;
             comboTimer = 3.4;
@@ -1092,9 +1195,35 @@
 
       ctx.save();
       ctx.translate(player.x, player.y);
-      var pulseScale = 1 + Math.sin((now || 0) * 0.012) * 0.08;
-      ctx.shadowColor = shield > 0 ? '#8a5cff' : cfg.color;
-      ctx.shadowBlur = shield > 0 ? 38 : 24;
+      var pulseScale = 1 + Math.sin((now || 0) * 0.012) * 0.08 + boostFlash * 0.1;
+      var pulseReady = running && pulse >= 100;
+      var dashReady = running && dashCooldown <= 0;
+      if (pulseReady || dashReady) {
+        ctx.save();
+        ctx.globalAlpha = pulseReady ? 0.72 : 0.5;
+        ctx.strokeStyle = pulseReady ? '#00eaff' : '#8a5cff';
+        ctx.shadowColor = pulseReady ? '#00eaff' : '#8a5cff';
+        ctx.shadowBlur = 28 + Math.sin((now || 0) * 0.01) * 8;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, player.r + 17 + Math.sin((now || 0) * 0.007) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+      if (dashReady) {
+        ctx.save();
+        ctx.globalAlpha = 0.58;
+        ctx.strokeStyle = '#8a5cff';
+        ctx.shadowColor = '#8a5cff';
+        ctx.shadowBlur = 22;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, player.r + 25, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.shadowColor = shield > 0 ? '#8a5cff' : pulseReady ? '#00eaff' : cfg.color;
+      ctx.shadowBlur = shield > 0 ? 42 : pulseReady ? 40 : 24;
       var grad = ctx.createRadialGradient(-6, -6, 2, 0, 0, player.r * 1.5);
       grad.addColorStop(0, '#ffffff');
       grad.addColorStop(0.25, cfg.color);
@@ -1128,16 +1257,29 @@
       ctx.fillText('MULTI ' + multiplier().toFixed(1) + 'x', canvas.width - 18, 30);
       ctx.fillText('PULSE ' + Math.floor(pulse) + '%', canvas.width - 18, 50);
 
+      if (damageFlash > 0) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(0.42, damageFlash * 0.42);
+        var red = ctx.createRadialGradient(canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.08, canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.68);
+        red.addColorStop(0, 'rgba(255,63,104,0)');
+        red.addColorStop(0.62, 'rgba(255,63,104,.24)');
+        red.addColorStop(1, 'rgba(255,25,70,.88)');
+        ctx.fillStyle = red;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
+
       if (!running && !over) {
         ctx.fillStyle = 'rgba(0,0,0,.42)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#fff';
         ctx.font = '900 30px system-ui';
         ctx.textAlign = 'center';
-        ctx.fillText('Neural Dodge // Overclock', canvas.width / 2, canvas.height / 2 - 18);
+        ctx.fillText('光核闪避', canvas.width / 2, canvas.height / 2 - 18);
         ctx.fillStyle = '#b7f7ff';
         ctx.font = '600 16px system-ui';
-        ctx.fillText('开始后持续躲避追猎体，收集数据核叠加倍率', canvas.width / 2, canvas.height / 2 + 16);
+        ctx.font = '700 17px system-ui';
+        ctx.fillText('点击开始', canvas.width / 2, canvas.height / 2 + 17);
       }
 
       if (over) {
@@ -1146,7 +1288,7 @@
         ctx.fillStyle = '#fff';
         ctx.font = '900 34px system-ui';
         ctx.textAlign = 'center';
-        ctx.fillText('再来一局？', canvas.width / 2, canvas.height / 2 - 6);
+        ctx.fillText('再来一局', canvas.width / 2, canvas.height / 2 - 6);
         ctx.fillStyle = '#a9f8ff';
         ctx.font = '600 16px system-ui';
         ctx.fillText(level().label + ' · WAVE ' + wave + ' · ' + score + ' 分', canvas.width / 2, canvas.height / 2 + 28);
@@ -1163,7 +1305,34 @@
     pulseBtn.addEventListener('click', usePulse);
     dashBtn.addEventListener('click', useDash);
     fullscreenBtn.addEventListener('click', toggleFullscreen);
+    if (mobilePulseBtn) mobilePulseBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); usePulse(); });
+    if (mobileDashBtn) mobileDashBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); useDash(); });
+    if (mobileExitBtn) mobileExitBtn.addEventListener('click', toggleFullscreen);
     document.addEventListener('fullscreenchange', syncFullscreenButton);
+    document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
+    window.addEventListener('resize', syncFullscreenButton);
+
+    if (joystickZone) {
+      joystickZone.addEventListener('pointerdown', function (e) {
+        if (!isMobileFullscreen()) return;
+        e.preventDefault();
+        if (!running) reset();
+        joystick.active = true;
+        joystick.pointerId = e.pointerId;
+        joystickZone.setPointerCapture && joystickZone.setPointerCapture(e.pointerId);
+        updateJoystickFromClient(e.clientX, e.clientY);
+      }, { passive: false });
+      joystickZone.addEventListener('pointermove', function (e) {
+        if (!joystick.active || joystick.pointerId !== e.pointerId) return;
+        e.preventDefault();
+        updateJoystickFromClient(e.clientX, e.clientY);
+      }, { passive: false });
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (name) {
+        joystickZone.addEventListener(name, function (e) {
+          if (joystick.pointerId === null || e.pointerId === joystick.pointerId || name === 'lostpointercapture') resetJoystick();
+        });
+      });
+    }
 
     window.addEventListener('keydown', function (e) {
       keys[e.key] = true;
@@ -1181,7 +1350,7 @@
     canvas.addEventListener('pointerenter', function (e) { pointerMove(e); });
     canvas.addEventListener('pointermove', function (e) { if (running) pointerMove(e); });
     canvas.addEventListener('pointerdown', function (e) {
-      canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+      if (!isMobileFullscreen() && canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
       if (!running) reset();
       pointerMove(e);
     });
@@ -1191,7 +1360,7 @@
     document.addEventListener('mousemove', function (e) {
       if (running && pointer.active) movePointerToClient(e.clientX, e.clientY);
     });
-    window.addEventListener('blur', function () { if (!running) pointer.active = false; });
+    window.addEventListener('blur', function () { if (!running) pointer.active = false; resetJoystick(); });
     canvas.addEventListener('touchstart', function (e) { if (!running) reset(); pointerMove(e); }, { passive: true });
     canvas.addEventListener('touchmove', function (e) {
       if (running) {
@@ -1225,6 +1394,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
+
 
 
 
