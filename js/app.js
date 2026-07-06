@@ -507,11 +507,13 @@
   function initGame() {
     var canvas = $('#gameCanvas');
     var startBtn = $('#gameStart');
+    var pauseBtn = $('#gamePause');
     var pulseBtn = $('#gamePulse');
     var dashBtn = $('#gameDash');
     var fullscreenBtn = $('#gameFullscreen');
     var mobilePulseBtn = $('#mobilePulseBtn');
     var mobileDashBtn = $('#mobileDashBtn');
+    var mobilePauseBtn = $('#mobilePauseBtn');
     var mobileExitBtn = $('#mobileExitBtn');
     var joystickZone = $('#joystickZone');
     var joystickStick = $('#joystickStick');
@@ -537,6 +539,7 @@
     var currentLevel = 'normal';
     var best = 0;
     var running = false;
+    var paused = false;
     var over = false;
     var last = 0;
     var spawnTimer = 0;
@@ -617,6 +620,7 @@
       }
       fullscreenBtn.textContent = active ? '退出全屏' : '全屏';
       if (mobileExitBtn) mobileExitBtn.hidden = !active;
+      if (mobilePauseBtn) mobilePauseBtn.hidden = !(active && running && !over);
       if (!mobileActive) resetJoystick();
       draw(performance.now());
     }
@@ -672,8 +676,9 @@
     }
 
     function updateHud(state) {
-      var pulseReady = running && pulse >= 100;
-      var dashReady = running && dashCooldown <= 0;
+      var activeRun = running && !paused;
+      var pulseReady = activeRun && pulse >= 100;
+      var dashReady = activeRun && dashCooldown <= 0;
       if (scoreEl) scoreEl.textContent = score;
       if (comboEl) comboEl.textContent = 'x' + multiplier().toFixed(1);
       if (waveEl) waveEl.textContent = String(wave);
@@ -681,8 +686,11 @@
       if (pulseEl) pulseEl.textContent = Math.floor(clamp(pulse, 0, 100)) + '%';
       if (dashEl) dashEl.textContent = dashCooldown <= 0 ? '就绪' : dashCooldown.toFixed(1) + 's';
       if (bestEl) bestEl.textContent = best;
-      if (stateEl) stateEl.textContent = state || (running ? '运行中 · ' + level().label + ' · WAVE ' + wave : '待机 · ' + level().label + '难度');
+      if (stateEl) stateEl.textContent = state || (paused ? '已暂停 · ' + level().label + ' · WAVE ' + wave : running ? '运行中 · ' + level().label + ' · WAVE ' + wave : '待机 · ' + level().label + '难度');
       startBtn.textContent = running ? '重新开始' : over ? '再玩一局' : '开始游戏';
+      startBtn.disabled = false;
+      if (pauseBtn) { pauseBtn.textContent = paused ? '继续' : '暂停'; pauseBtn.disabled = !(running && !over); }
+      if (mobilePauseBtn) { mobilePauseBtn.textContent = paused ? '继续' : '暂停'; mobilePauseBtn.hidden = !(fullscreenElement() === gameCard && running && !over); }
       pulseBtn.disabled = !pulseReady;
       dashBtn.disabled = !dashReady;
       if (mobilePulseBtn) mobilePulseBtn.disabled = !pulseReady;
@@ -757,7 +765,7 @@
     }
 
     function usePulse() {
-      if (!running || pulse < 100) return;
+      if (!running || paused || pulse < 100) return;
       pulse = 0;
       pulseFlash = 0.34;
       pulseBurst = 0.42;
@@ -785,7 +793,7 @@
     }
 
     function useDash() {
-      if (!running || dashCooldown > 0) return;
+      if (!running || paused || dashCooldown > 0) return;
       var dx = 0;
       var dy = 0;
       if (keys.ArrowLeft || keys.a || keys.A) dx -= 1;
@@ -822,15 +830,16 @@
 
     function reset() {
       running = true;
+      paused = false;
       over = false;
       runId += 1;
       last = performance.now();
-      spawnTimer = 0.52;
+      spawnTimer = 1.15;
       scoreFloat = 0;
       score = 0;
       lives = level().lives;
       shield = 0;
-      grace = 1.3;
+      grace = 2.2;
       wave = 1;
       waveClock = 0;
       combo = 0;
@@ -857,6 +866,7 @@
 
     function endGame() {
       running = false;
+      paused = false;
       over = true;
       runId += 1;
       if (score > best) {
@@ -869,8 +879,22 @@
       draw(performance.now());
     }
 
+    function togglePause() {
+      if (!running || over) return;
+      paused = !paused;
+      if (!paused) last = performance.now();
+      updateHud(paused ? '已暂停 · ' + level().label + ' · WAVE ' + wave : '运行中 · ' + level().label + ' · WAVE ' + wave);
+      draw(performance.now());
+    }
+
     function loop(now, id) {
       if (!running || id !== runId) return;
+      if (paused) {
+        last = now;
+        draw(now);
+        requestAnimationFrame(function (next) { loop(next, id); });
+        return;
+      }
       var dt = Math.min(0.033, (now - last) / 1000 || 0.016);
       last = now;
       update(dt);
@@ -1269,6 +1293,18 @@
         ctx.restore();
       }
 
+      if (paused) {
+        ctx.fillStyle = 'rgba(0,0,0,.46)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = '900 34px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('已暂停', canvas.width / 2, canvas.height / 2 - 8);
+        ctx.fillStyle = '#b7f7ff';
+        ctx.font = '700 17px system-ui';
+        ctx.fillText('点击继续', canvas.width / 2, canvas.height / 2 + 28);
+      }
+
       if (!running && !over) {
         ctx.fillStyle = 'rgba(0,0,0,.42)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1302,11 +1338,13 @@
       });
     });
     startBtn.addEventListener('click', reset);
+    if (pauseBtn) pauseBtn.addEventListener('click', togglePause);
     pulseBtn.addEventListener('click', usePulse);
     dashBtn.addEventListener('click', useDash);
     fullscreenBtn.addEventListener('click', toggleFullscreen);
     if (mobilePulseBtn) mobilePulseBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); usePulse(); });
     if (mobileDashBtn) mobileDashBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); useDash(); });
+    if (mobilePauseBtn) mobilePauseBtn.addEventListener('click', togglePause);
     if (mobileExitBtn) mobileExitBtn.addEventListener('click', toggleFullscreen);
     document.addEventListener('fullscreenchange', syncFullscreenButton);
     document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
@@ -1336,9 +1374,10 @@
 
     window.addEventListener('keydown', function (e) {
       keys[e.key] = true;
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'q', 'Q'].indexOf(e.key) >= 0) e.preventDefault();
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'q', 'Q', 'p', 'P', 'Escape'].indexOf(e.key) >= 0) e.preventDefault();
       if (e.key === ' ' || e.code === 'Space') useDash();
       if (e.key === 'q' || e.key === 'Q') usePulse();
+      if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
     }, { passive: false });
     window.addEventListener('keyup', function (e) { keys[e.key] = false; });
 
@@ -1351,6 +1390,7 @@
     canvas.addEventListener('pointermove', function (e) { if (running) pointerMove(e); });
     canvas.addEventListener('pointerdown', function (e) {
       if (!isMobileFullscreen() && canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+      if (paused) { togglePause(); return; }
       if (!running) reset();
       pointerMove(e);
     });
@@ -1361,7 +1401,7 @@
       if (running && pointer.active) movePointerToClient(e.clientX, e.clientY);
     });
     window.addEventListener('blur', function () { if (!running) pointer.active = false; resetJoystick(); });
-    canvas.addEventListener('touchstart', function (e) { if (!running) reset(); pointerMove(e); }, { passive: true });
+    canvas.addEventListener('touchstart', function (e) { if (paused) { togglePause(); return; } if (!running) reset(); pointerMove(e); }, { passive: true });
     canvas.addEventListener('touchmove', function (e) {
       if (running) {
         e.preventDefault();

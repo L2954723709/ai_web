@@ -146,3 +146,10 @@ body:after{content:"";position:fixed;inset:0;z-index:-2;background:repeating-lin
   .game-section .game-layout{grid-template-columns:minmax(220px,.38fr) minmax(700px,.92fr);gap:30px}
   .game-section .game-card{min-width:0}
 }
+
+/* === Pause control v14 === */
+.game-mobile-ui,.mobile-float-exit,.mobile-float-pause{display:none}
+.mobile-float-pause{position:absolute;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));z-index:7;min-width:88px;min-height:42px;padding:0 16px;border:1px solid rgba(0,234,255,.28);border-radius:999px;background:rgba(5,9,20,.52);backdrop-filter:blur(20px);color:#fff;cursor:pointer;box-shadow:0 12px 34px rgba(0,0,0,.3),0 0 28px rgba(0,234,255,.12)}
+.game-card.is-fullscreen .mobile-float-pause{display:inline-flex;align-items:center;justify-content:center;pointer-events:auto}
+.game-card.is-mobile-fullscreen .mobile-float-pause{display:inline-flex;align-items:center;justify-content:center;pointer-events:auto}
+#gamePause:disabled{opacity:.45;cursor:not-allowed;filter:saturate(.55)}
