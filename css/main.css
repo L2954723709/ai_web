@@ -5206,3 +5206,196 @@ body.game-performance-mode .memory-orbit-slides video {
         transition: none !important
     }
 }
+
+
+/* === Desktop orbit visual layer v50: particles + music notes only === */
+.memory-orbit-vfx {
+    display: none;
+    pointer-events: none
+}
+
+@media (min-width:901px) {
+    .memory-orbit-vfx {
+        display: block;
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        overflow: hidden;
+        border-radius: inherit;
+        perspective: 1200px;
+        transform-style: preserve-3d;
+        mix-blend-mode: screen;
+        mask-image: radial-gradient(ellipse at 50% 50%, transparent 0 14%, #000 25%, #000 78%, transparent 96%)
+    }
+
+    .memory-orbit-vfx:before,
+    .memory-orbit-vfx:after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 58%;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        transform: translate(-50%, -50%) rotateX(66deg);
+        border: 1px solid rgba(143, 248, 255, .24);
+        box-shadow: 0 0 24px rgba(0, 245, 255, .18), inset 0 0 26px rgba(255, 61, 242, .08);
+        opacity: .62;
+        animation: vfxRingBreath 3.6s ease-in-out infinite alternate
+    }
+
+    .memory-orbit-vfx:after {
+        width: 74%;
+        border-color: rgba(255, 61, 242, .18);
+        transform: translate(-50%, -50%) rotateX(72deg) rotateZ(28deg);
+        animation: vfxRingSpin 19s linear infinite
+    }
+
+    .orbit-spark,
+    .orbit-note {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        will-change: transform, opacity;
+        pointer-events: none
+    }
+
+    .orbit-spark {
+        width: var(--s);
+        height: var(--s);
+        margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+        border-radius: 50%;
+        background: #efffff;
+        box-shadow: 0 0 10px rgba(255, 255, 255, .95), 0 0 22px rgba(0, 245, 255, .9), 0 0 42px rgba(255, 61, 242, .42);
+        animation: vfxSparkOrbit var(--dur) linear infinite, vfxSparkPulse 1.9s ease-in-out infinite alternate;
+        animation-delay: var(--d), calc(var(--d) * .42)
+    }
+
+    .orbit-spark:nth-child(3n+1) {
+        background: #bffcff;
+        box-shadow: 0 0 10px rgba(191, 252, 255, .95), 0 0 25px rgba(0, 245, 255, .92), 0 0 48px rgba(45, 125, 255, .38)
+    }
+
+    .orbit-spark:nth-child(3n+2) {
+        background: #ffd7ff;
+        box-shadow: 0 0 10px rgba(255, 215, 255, .95), 0 0 24px rgba(255, 61, 242, .75), 0 0 44px rgba(0, 245, 255, .38)
+    }
+
+    .orbit-note {
+        width: 32px;
+        height: 32px;
+        margin: -16px 0 0 -16px;
+        display: grid;
+        place-items: center;
+        color: rgba(232, 255, 255, .95);
+        font-size: var(--fs);
+        font-weight: 900;
+        line-height: 1;
+        text-shadow: 0 0 10px rgba(255, 255, 255, .72), 0 0 22px rgba(0, 245, 255, .82), 0 0 42px rgba(255, 61, 242, .45);
+        animation: vfxNoteOrbit var(--dur) linear infinite;
+        animation-delay: var(--d);
+        opacity: .82
+    }
+
+    .orbit-note:nth-last-child(2n) {
+        color: rgba(255, 220, 255, .96);
+        text-shadow: 0 0 10px rgba(255, 255, 255, .68), 0 0 22px rgba(255, 61, 242, .72), 0 0 44px rgba(0, 245, 255, .38)
+    }
+
+    .memory-orbit-card:hover ~ .orbit-spark {
+        opacity: 1
+    }
+}
+
+body.game-performance-mode .memory-orbit-vfx {
+    display: none !important
+}
+
+@media (max-width:900px) {
+    .memory-orbit-vfx {
+        display: none !important
+    }
+}
+
+@media (prefers-reduced-motion:reduce) {
+    .memory-orbit-vfx,
+    .orbit-spark,
+    .orbit-note,
+    .memory-orbit-vfx:before,
+    .memory-orbit-vfx:after {
+        animation: none !important
+    }
+}
+
+@keyframes vfxSparkOrbit {
+    0% {
+        transform: rotate(var(--a)) translate3d(var(--r), -18px, var(--z)) scale(.62);
+        opacity: .18
+    }
+
+    38% {
+        opacity: .96
+    }
+
+    72% {
+        opacity: .58
+    }
+
+    100% {
+        transform: rotate(calc(var(--a) + 360deg)) translate3d(var(--r), 18px, var(--zn)) scale(1.08);
+        opacity: .22
+    }
+}
+
+@keyframes vfxSparkPulse {
+    from {
+        filter: brightness(.82)
+    }
+
+    to {
+        filter: brightness(1.45)
+    }
+}
+
+@keyframes vfxNoteOrbit {
+    0% {
+        transform: rotate(var(--a)) translateX(var(--r)) translateY(var(--y)) rotate(0deg) scale(.72);
+        opacity: 0
+    }
+
+    12% {
+        opacity: .86
+    }
+
+    50% {
+        transform: rotate(calc(var(--a) + 180deg)) translateX(calc(var(--r) * .9)) translateY(calc(var(--y) * -.55)) rotate(-180deg) scale(1.08);
+        opacity: .95
+    }
+
+    88% {
+        opacity: .78
+    }
+
+    100% {
+        transform: rotate(calc(var(--a) + 360deg)) translateX(var(--r)) translateY(var(--y)) rotate(-360deg) scale(.72);
+        opacity: 0
+    }
+}
+
+@keyframes vfxRingBreath {
+    from {
+        opacity: .32;
+        transform: translate(-50%, -50%) rotateX(66deg) scale(.96)
+    }
+
+    to {
+        opacity: .74;
+        transform: translate(-50%, -50%) rotateX(66deg) scale(1.04)
+    }
+}
+
+@keyframes vfxRingSpin {
+    to {
+        transform: translate(-50%, -50%) rotateX(72deg) rotateZ(388deg)
+    }
+}
