@@ -286,6 +286,12 @@
     { src: 'assets/images/gallery/gallery-12.jpg', thumb: 'assets/images/gallery/thumbs/gallery-12-thumb.webp', title: '年度成果展览', cat: 'event', desc: '展示一年来的 AI 研究成果', shape: '' }
   ];
 
+  var orbitVideoBackgrounds = [
+    { src: 'assets/videos/neural-loop.webm', fallback: 'assets/videos/neural-loop.mp4', poster: 'assets/videos/neural-loop-poster.webp' },
+    { src: 'assets/videos/data-tunnel.webm', fallback: 'assets/videos/data-tunnel.mp4', poster: 'assets/videos/data-tunnel-poster.webp' },
+    { src: 'assets/videos/orbital-core.webm', fallback: 'assets/videos/orbital-core.mp4', poster: 'assets/videos/orbital-core-poster.webp' }
+  ];
+
   function toWebp(path) { return path.replace(/\.jpg$/i, '.webp'); }
 
   function initShowcase() {
@@ -365,61 +371,6 @@
     });
   }
 
-  function initVideoWall() {
-    var videos = $$('.video-frame video[data-src]');
-    if (!videos.length) return;
-    var loadedVideos = [];
-
-    function shouldPlayVideo() {
-      return !document.hidden && !document.body.classList.contains('game-performance-mode') && !(navigator.connection && navigator.connection.saveData);
-    }
-
-    function playVideo(video) {
-      if (!shouldPlayVideo()) return;
-      var p = video.play();
-      if (p && p.catch) p.catch(function () {});
-    }
-
-    function syncVideos() {
-      loadedVideos.forEach(function (video) {
-        if (shouldPlayVideo()) playVideo(video);
-        else video.pause();
-      });
-    }
-
-    function load(video) {
-      if (video.dataset.loaded) return;
-      var source = document.createElement('source');
-      source.src = video.dataset.src;
-      source.type = video.dataset.src.indexOf('.webm') > -1 ? 'video/webm' : 'video/mp4';
-      video.appendChild(source);
-      video.dataset.loaded = '1';
-      loadedVideos.push(video);
-      video.addEventListener('error', function () {
-        if (video.dataset.fallback && video.currentSrc.indexOf(video.dataset.fallback) === -1) {
-          video.innerHTML = '';
-          var fb = document.createElement('source');
-          fb.src = video.dataset.fallback;
-          fb.type = 'video/mp4';
-          video.appendChild(fb);
-          video.load();
-          playVideo(video);
-        }
-      }, { once: true });
-      video.load();
-      playVideo(video);
-    }
-    if (!('IntersectionObserver' in window)) { videos.forEach(load); return; }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) { load(entry.target); io.unobserve(entry.target); }
-      });
-    }, { rootMargin: '320px 0px', threshold: 0.04 });
-    videos.forEach(function (v) { io.observe(v); });
-    document.addEventListener('visibilitychange', syncVideos);
-    document.addEventListener('ai:performance-mode', syncVideos);
-  }
-
   function initGallery() {
     var filters = $('#galleryFilters');
     var grid = $('#galleryGrid');
@@ -484,6 +435,7 @@
     buildLightbox();
     var stage = $('[data-memory-stage]', scene);
     var slides = $('[data-memory-slides]', scene);
+    var backdrop = $('[data-memory-backdrop]', scene);
     var lanes = $$('[data-memory-lane]', scene);
     var orb = $('[data-memory-orb]', scene);
     var home = $('[data-memory-home]', scene);
@@ -499,6 +451,7 @@
     var drumPaintLast = 0;
     var drumRaf = 0;
     var activeBg = 0;
+    var bgTimer = 0;
     var particleSmallMode = null;
     var sceneVisible = true;
 
@@ -606,27 +559,79 @@
       scheduleDrum();
     }
 
+    function videoBgActive() {
+      return !document.hidden && !document.body.classList.contains('game-performance-mode') && !(navigator.connection && navigator.connection.saveData);
+    }
+
+    function playOrbitVideo(video) {
+      if (!video || !videoBgActive()) return;
+      if (!video.dataset.loaded) { video.load(); video.dataset.loaded = '1'; }
+      var p = video.play();
+      if (p && p.catch) p.catch(function () {});
+    }
+
     function setBackground(index) {
       if (!slides) return;
-      var imgs = $$('img', slides);
-      if (!imgs.length) return;
-      activeBg = (index + imgs.length) % imgs.length;
-      imgs.forEach(function (img, i) { img.classList.toggle('is-on', i === activeBg); });
+      var videos = $$('video', slides);
+      if (!videos.length) return;
+      activeBg = (index + videos.length) % videos.length;
+      var activeVideo = videos[activeBg];
+      if (activeVideo && activeVideo.poster) {
+        slides.style.setProperty('--orbit-bg-poster', 'url("' + activeVideo.poster + '")');
+        if (backdrop && backdrop.getAttribute('src') !== activeVideo.poster) backdrop.src = activeVideo.poster;
+      }
+      videos.forEach(function (video, i) {
+        var on = i === activeBg;
+        video.classList.toggle('is-on', on);
+        if (on) playOrbitVideo(video);
+        else video.pause();
+      });
+    }
+
+    function randomBackground() {
+      if (!slides) return;
+      var videos = $$('video', slides);
+      if (!videos.length) return;
+      var next = activeBg;
+      if (videos.length > 1) {
+        while (next === activeBg) next = Math.floor(Math.random() * videos.length);
+      }
+      setBackground(next);
+    }
+
+    function syncVideoBackgrounds() {
+      if (!slides) return;
+      var videos = $$('video', slides);
+      if (!videos.length) return;
+      if (!videoBgActive()) { videos.forEach(function (video) { video.pause(); }); return; }
+      setBackground(activeBg);
     }
 
     function buildSlides() {
       if (!slides || slides.children.length) return;
-      galleryData.slice(0, 6).forEach(function (item, i) {
-        var img = document.createElement('img');
-        img.src = toWebp(item.src);
-        img.onerror = function () { imgFallback(img, item.src); };
-        img.alt = '';
-        img.loading = i < 2 ? 'eager' : 'lazy';
-        img.decoding = 'async';
-        if (i === 0) img.className = 'is-on';
-        slides.appendChild(img);
+      orbitVideoBackgrounds.forEach(function (item, i) {
+        var video = document.createElement('video');
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.preload = i === 0 ? 'metadata' : 'none';
+        video.poster = item.poster;
+        video.setAttribute('aria-hidden', 'true');
+        video.dataset.src = item.src;
+        video.dataset.fallback = item.fallback;
+        var source = document.createElement('source');
+        source.src = item.src;
+        source.type = 'video/webm';
+        video.appendChild(source);
+        var fallback = document.createElement('source');
+        fallback.src = item.fallback;
+        fallback.type = 'video/mp4';
+        video.appendChild(fallback);
+        if (i === 0) video.className = 'is-on';
+        slides.appendChild(video);
       });
-      window.setInterval(function () { setBackground(activeBg + 1); }, 3600);
+      setBackground(0);
+      bgTimer = window.setInterval(function () { if (videoBgActive()) randomBackground(); }, 4200);
     }
 
     function setZoom(nextScale) {
@@ -659,9 +664,7 @@
         var img = $('img', card);
         img.src = item.thumb || toWebp(item.src);
         img.alt = item.title;
-        card.addEventListener('pointerenter', function () { setBackground(index); });
-        card.addEventListener('focus', function () { setBackground(index); });
-        card.addEventListener('click', function () { setBackground(index); openLightbox(index); });
+        card.addEventListener('click', function () { openLightbox(index); });
         lane.appendChild(card);
       });
       applyLaneTransform(lane, row);
@@ -723,13 +726,14 @@
       var observer = new IntersectionObserver(function (entries) {
         sceneVisible = entries[0] ? entries[0].isIntersecting : true;
         scheduleDrum();
+        syncVideoBackgrounds();
       }, { rootMargin: '220px 0px' });
       observer.observe(scene);
     }
 
     window.addEventListener('resize', function () { build(); scheduleDrum(); }, { passive: true });
-    document.addEventListener('visibilitychange', scheduleDrum);
-    document.addEventListener('ai:performance-mode', scheduleDrum);
+    document.addEventListener('visibilitychange', function () { scheduleDrum(); syncVideoBackgrounds(); });
+    document.addEventListener('ai:performance-mode', function () { scheduleDrum(); syncVideoBackgrounds(); });
     buildSlides();
     build();
     cancelAnimationFrame(drumRaf);
@@ -838,6 +842,42 @@
         showToast('信号已点亮，欢迎接入实验舱');
       });
     }
+  }
+
+
+  function initGameHelp() {
+    var openBtn = $('#gameHelpOpen');
+    var modal = $('#gameHelpModal');
+    var closeBtn = $('#gameHelpClose');
+    if (!openBtn || !modal || !closeBtn) return;
+    var lastFocus = null;
+
+    function openHelp() {
+      lastFocus = document.activeElement;
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('game-help-open');
+      closeBtn.focus({ preventScroll: true });
+    }
+
+    function closeHelp() {
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('game-help-open');
+      if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+    }
+
+    openBtn.addEventListener('click', openHelp);
+    closeBtn.addEventListener('click', closeHelp);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeHelp(); });
+    document.addEventListener('keydown', function (e) {
+      if (!modal.classList.contains('open')) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeHelp();
+      }
+    }, true);
   }
 
   function initGame() {
@@ -1875,6 +1915,7 @@
     }
 
     window.addEventListener('keydown', function (e) {
+      if (document.body.classList.contains('game-help-open')) return;
       keys[e.key] = true;
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'q', 'Q', 'p', 'P', 'Escape'].indexOf(e.key) >= 0) e.preventDefault();
       if (e.key === ' ' || e.code === 'Space') useDash();
@@ -1932,9 +1973,9 @@
     initGallery();
     initMemoryOrbit();
     initShowcase();
-    initVideoWall();
     initMembers();
     initJoinActions();
+    initGameHelp();
     initGame();
   }
 

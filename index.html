@@ -10,7 +10,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='30' fill='%23040610'/%3E%3Cpath d='M24 72c18-42 62-46 72-14 9 28-36 49-56 24-12-16 9-36 31-22' fill='none' stroke='%2300eaff' stroke-width='9' stroke-linecap='round'/%3E%3Ccircle cx='82' cy='34' r='8' fill='%23ff4df8'/%3E%3C/svg%3E">
   <link rel="preload" href="assets/videos/neural-loop-poster.webp" as="image" type="image/webp" fetchpriority="high">
   <link rel="preload" href="assets/images/gallery/thumbs/gallery-01-thumb.webp" as="image" type="image/webp">
-  <link rel="stylesheet" href="css/main.css?v=20260707-41">
+  <link rel="stylesheet" href="css/main.css?v=20260707-49">
 </head>
 <body>
   <canvas id="neuralBg" aria-hidden="true"></canvas>
@@ -24,7 +24,6 @@
     <button class="nav-toggle" id="navToggle" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="navLinks"><span></span><span></span><span></span></button>
     <div class="nav-links" id="navLinks">
       <a href="#showcase" data-nav>动态展厅</a>
-      <a href="#lab" data-nav>实验室</a>
       <a href="#gallery" data-nav>影像墙</a>
       <a href="#game" data-nav>小游戏</a>
       <a href="#join" data-nav>加入</a>
@@ -85,43 +84,6 @@
       </div>
     </section>
 
-    <section class="section lab-section" id="lab">
-      <div class="shell">
-        <div class="section-head reveal">
-          <span class="kicker">LAB STACK</span>
-          <h2>实验室矩阵</h2>
-          <p>探索不同方向的 AI 创作与实验</p>
-        </div>
-        <div class="lab-grid">
-          <article class="lab-card reveal" data-tilt><i>01</i><h3>LLM Prompt Ops</h3><p>提示词、智能体与知识库</p><div><span>RAG</span><span>Agent</span><span>Eval</span></div></article>
-          <article class="lab-card reveal" data-tilt><i>02</i><h3>Vision Reactor</h3><p>视觉、多模态与感知</p><div><span>CV</span><span>VLM</span><span>Edge</span></div></article>
-          <article class="lab-card reveal" data-tilt><i>03</i><h3>AIGC Studio</h3><p>图像、视频与声音创作</p><div><span>Image</span><span>Video</span><span>Sound</span></div></article>
-          <article class="lab-card reveal" data-tilt><i>04</i><h3>Robotics Garage</h3><p>机器人与空间交互实验</p><div><span>ROS</span><span>IoT</span><span>SLAM</span></div></article>
-        </div>
-      </div>
-    </section>
-
-    <section class="section video-section" aria-label="高科技视频展示">
-      <div class="shell video-grid reveal">
-        <div>
-          <span class="kicker">TECH VIDEO WALL</span>
-          <h2>动态视频墙</h2>
-          <p>沉浸式视觉循环</p>
-        </div>
-        <div class="video-wall">
-          <div class="video-frame featured" data-label="NEURAL LOOP">
-            <video muted loop playsinline preload="none" poster="assets/videos/neural-loop-poster.webp" data-src="assets/videos/neural-loop.webm" data-fallback="assets/videos/neural-loop.mp4"></video>
-          </div>
-          <div class="video-frame" data-label="DATA TUNNEL">
-            <video muted loop playsinline preload="none" poster="assets/videos/data-tunnel-poster.webp" data-src="assets/videos/data-tunnel.webm" data-fallback="assets/videos/data-tunnel.mp4"></video>
-          </div>
-          <div class="video-frame" data-label="ORBITAL CORE">
-            <video muted loop playsinline preload="none" poster="assets/videos/orbital-core-poster.webp" data-src="assets/videos/orbital-core.webm" data-fallback="assets/videos/orbital-core.mp4"></video>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section class="section gallery-section" id="gallery">
       <div class="shell">
         <div class="section-head reveal">
@@ -129,6 +91,7 @@
           <h2>影像墙</h2>
         </div>
         <div class="memory-orbit-scene reveal" id="memoryOrbit" aria-label="3D影像环">
+          <img class="memory-orbit-backdrop" data-memory-backdrop src="assets/videos/neural-loop-poster.webp" alt="" aria-hidden="true">
           <div class="memory-orbit-slides" data-memory-slides aria-hidden="true"></div>
           <div class="memory-orbit-bg" aria-hidden="true"></div>
           <div class="memory-orbit-controls" aria-label="缩放控制">
@@ -163,12 +126,7 @@
             <button type="button" data-level="hard">困难</button>
             <button type="button" data-level="insane">地狱</button>
           </div>
-          <div class="game-badges" aria-label="游戏操作说明">
-            <span>WASD / 方向键移动</span>
-            <span>鼠标悬停即可操控</span>
-            <span>空格 = 冲刺</span>
-            <span>Q = 脉冲清场</span>
-          </div>
+          <button class="game-help-trigger" type="button" id="gameHelpOpen" aria-haspopup="dialog" aria-controls="gameHelpModal">说明</button>
         </div>
         <div class="game-card reveal">
           <div class="game-topbar">
@@ -206,20 +164,18 @@
           </div>
         </div>
       </div>
-    </section>
-
-    <section class="section events-section" id="events">
-      <div class="shell">
-        <div class="section-head reveal">
-          <span class="kicker">MISSION LOG</span>
-          <h2>活动时间线</h2>
-          <p>从灵感到落地</p>
-        </div>
-        <div class="timeline">
-          <article class="timeline-item reveal"><time>WEEK 01</time><h3>大模型快速入门</h3><p>理解模型、语言与知识</p></article>
-          <article class="timeline-item reveal"><time>WEEK 02</time><h3>AI 视觉创作夜</h3><p>影像、交互与视觉表达</p></article>
-          <article class="timeline-item reveal"><time>WEEK 03</time><h3>24H Hack Sprint</h3><p>原型、实现与现场发布</p></article>
-          <article class="timeline-item reveal"><time>WEEK 04</time><h3>Cloudflare 部署实战</h3><p>部署、性能与发布</p></article>
+      <div class="game-help-modal" id="gameHelpModal" aria-hidden="true">
+        <div class="game-help-panel" role="dialog" aria-modal="true" aria-labelledby="gameHelpTitle">
+          <button class="game-help-close" type="button" id="gameHelpClose" aria-label="关闭说明">×</button>
+          <span class="kicker">CONTROL GUIDE</span>
+          <h3 id="gameHelpTitle">按键说明</h3>
+          <div class="game-help-list">
+            <span><b>WASD / 方向键</b><em>移动光核</em></span>
+            <span><b>鼠标悬停</b><em>跟随操控</em></span>
+            <span><b>空格</b><em>量子冲刺</em></span>
+            <span><b>Q</b><em>脉冲清场</em></span>
+            <span><b>P / ESC</b><em>暂停游戏</em></span>
+          </div>
         </div>
       </div>
     </section>
@@ -260,7 +216,7 @@
   </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script defer src="js/app.js?v=20260707-41"></script>
+  <script defer src="js/app.js?v=20260707-49"></script>
 </body>
 </html>
 
