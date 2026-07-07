@@ -304,3 +304,7 @@ body:after{content:"";position:fixed;inset:0;z-index:-2;background:repeating-lin
   .memory-orbit-particles{animation:particleShellSpin 34s linear infinite!important;animation-iteration-count:infinite!important}
   .memory-orbit-particles i{animation:particleBlink 3s ease-in-out infinite alternate!important;animation-iteration-count:infinite!important}
 }
+
+/* === In-canvas compact game HUD v36 === */
+.game-card .game-hud{display:none!important}
+@media (max-width:900px){.game-card.is-mobile-fullscreen::after{transition:opacity .14s ease}.game-card.is-mobile-fullscreen #gameCanvas{image-rendering:auto}}

@@ -778,6 +778,11 @@
     var gameSection = canvas ? canvas.closest('.game-section') : null;
     if (!canvas || !startBtn || !pulseBtn || !dashBtn || !fullscreenBtn || !gameCard) return;
     var ctx = canvas.getContext('2d');
+    var baseGameW = 760;
+    var baseGameH = 460;
+    var gameW = baseGameW;
+    var gameH = baseGameH;
+    var renderRatio = 1;
     var scoreEl = $('#scoreValue');
     var comboEl = $('#comboValue');
     var waveEl = $('#waveValue');
@@ -818,13 +823,16 @@
     var boostFlash = 0;
     var hitFlashTimer = 0;
     var keys = {};
-    var pointer = { x: canvas.width / 2, y: canvas.height / 2, active: false };
+    var pointer = { x: gameW / 2, y: gameH / 2, active: false };
     var joystick = { active: false, pointerId: null, dx: 0, dy: 0, mag: 0 };
-    var player = { x: canvas.width / 2, y: canvas.height / 2, r: 16, speed: 312, faceX: 1, faceY: 0 };
+    var player = { x: gameW / 2, y: gameH / 2, r: 16, speed: 312, faceX: 1, faceY: 0 };
     var hazards = [];
     var pickups = [];
     var particles = [];
     var rings = [];
+    var lastHudDomPaint = 0;
+    var lastMobileFramePaint = 0;
+    var gameHudCache = { key: '', chips: [], width: 0, top: 0, gap: 0, chipH: 0, mobile: false };
 
     function bestKey() { return 'lightCoreDodgeBest_' + currentLevel; }
     function readBest() { best = Number(localStorage.getItem(bestKey()) || 0); }
@@ -837,6 +845,12 @@
     function isTouchLayout() { return window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 900; }
     function isMobileGameInput() { return window.matchMedia('(pointer: coarse)').matches || ((navigator.maxTouchPoints || 0) > 0 && window.innerWidth <= 900); }
     function isMobileFullscreen() { return fullscreenElement() === gameCard && isTouchLayout(); }
+    function isLiteGameRender() { return isTouchLayout(); }
+    function maxHazardCount() {
+      if (!isLiteGameRender()) return currentLevel === 'insane' ? 84 : 72;
+      return currentLevel === 'insane' ? 34 : currentLevel === 'hard' ? 31 : 28;
+    }
+    function maxRingCount() { return isLiteGameRender() ? 5 : 12; }
 
     function setReadyClasses(pulseReady, dashReady) {
       gameCard.classList.toggle('pulse-ready', !!pulseReady);
@@ -867,6 +881,57 @@
       triggerHitFlash.timer = setTimeout(function () { gameCard.classList.remove('is-hit'); }, 360);
     }
 
+    function fitEntityToCanvas(obj, oldW, oldH) {
+      if (!obj || !oldW || !oldH) return;
+      obj.x = clamp(obj.x / oldW * gameW, obj.r || 0, gameW - (obj.r || 0));
+      obj.y = clamp(obj.y / oldH * gameH, obj.r || 0, gameH - (obj.r || 0));
+    }
+
+    function resizeGameCanvas() {
+      var oldW = gameW;
+      var oldH = gameH;
+      var active = fullscreenElement() === gameCard;
+      var targetW = baseGameW;
+      var targetH = baseGameH;
+      if (active) {
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        var canvasRect = canvas.getBoundingClientRect();
+        var cardRect = gameCard.getBoundingClientRect();
+        targetW = Math.max(320, Math.round(canvasRect.width || cardRect.width || window.innerWidth || baseGameW));
+        targetH = Math.max(320, Math.round(canvasRect.height || cardRect.height || window.innerHeight || baseGameH));
+      } else {
+        canvas.style.width = '100%';
+        canvas.style.height = 'auto';
+        var rect = canvas.getBoundingClientRect();
+        if (rect.width > 80) targetW = Math.max(320, Math.round(rect.width));
+        targetH = Math.round(targetW * baseGameH / baseGameW);
+      }
+      var nextRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, isLiteGameRender() ? 2 : 2.25));
+      if (Math.abs(targetW - gameW) < 2 && Math.abs(targetH - gameH) < 2 && Math.abs(nextRatio - renderRatio) < 0.05) return false;
+      gameW = targetW;
+      gameH = targetH;
+      renderRatio = nextRatio;
+      canvas.style.width = active ? '100%' : '100%';
+      canvas.style.height = active ? '100%' : targetH + 'px';
+      canvas.width = Math.max(1, Math.round(gameW * renderRatio));
+      canvas.height = Math.max(1, Math.round(gameH * renderRatio));
+      ctx.setTransform(renderRatio, 0, 0, renderRatio, 0, 0);
+      fitEntityToCanvas(player, oldW, oldH);
+      fitEntityToCanvas(pointer, oldW, oldH);
+      hazards.forEach(function (h) { fitEntityToCanvas(h, oldW, oldH); });
+      pickups.forEach(function (p) { fitEntityToCanvas(p, oldW, oldH); });
+      particles.forEach(function (p) { fitEntityToCanvas(p, oldW, oldH); });
+      rings.forEach(function (r) { fitEntityToCanvas(r, oldW, oldH); });
+      gameHudCache.key = '';
+      return true;
+    }
+
+    function prepareCanvasDraw() {
+      if (!canvas.width || !canvas.height) resizeGameCanvas();
+      ctx.setTransform(renderRatio, 0, 0, renderRatio, 0, 0);
+    }
+
     function syncFullscreenButton() {
       var active = fullscreenElement() === gameCard;
       var mobileActive = active && isTouchLayout();
@@ -881,7 +946,10 @@
       if (mobilePauseBtn) mobilePauseBtn.hidden = !(mobileActive && running && !over);
       if (mobileStartBtn) mobileStartBtn.hidden = !mobileActive;
       if (!mobileActive) resetJoystick();
-      draw(performance.now());
+      requestAnimationFrame(function () {
+        resizeGameCanvas();
+        draw(performance.now());
+      });
     }
 
     function toggleFullscreen() {
@@ -897,8 +965,8 @@
     function movePointerToClient(clientX, clientY) {
       if (isMobileFullscreen()) return;
       var r = canvas.getBoundingClientRect();
-      pointer.x = clamp((clientX - r.left) / r.width * canvas.width, player.r, canvas.width - player.r);
-      pointer.y = clamp((clientY - r.top) / r.height * canvas.height, player.r, canvas.height - player.r);
+      pointer.x = clamp((clientX - r.left) / r.width * gameW, player.r, gameW - player.r);
+      pointer.y = clamp((clientY - r.top) / r.height * gameH, player.r, gameH - player.r);
       pointer.active = true;
     }
 
@@ -923,14 +991,20 @@
     }
 
     function addParticles(x, y, color, count, speed) {
-      for (var i = 0; i < count; i++) {
+      var lite = isLiteGameRender();
+      var maxCount = lite ? 52 : 190;
+      var realCount = lite ? Math.max(2, Math.ceil(count * 0.32)) : count;
+      if (particles.length > maxCount) particles.splice(0, particles.length - maxCount);
+      for (var i = 0; i < realCount && particles.length < maxCount; i++) {
         var a = Math.random() * Math.PI * 2;
-        var s = speed * (0.35 + Math.random() * 0.85);
-        particles.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.26 + Math.random() * 0.38, max: 0.56, color: color, size: 1.5 + Math.random() * 3.5 });
+        var s = speed * (0.35 + Math.random() * 0.85) * (lite ? 0.78 : 1);
+        particles.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.22 + Math.random() * 0.3, max: 0.5, color: color, size: (lite ? 1.2 : 1.5) + Math.random() * (lite ? 2.4 : 3.5) });
       }
     }
 
     function addRing(x, y, color, radius, life) {
+      var maxRings = maxRingCount();
+      if (rings.length >= maxRings) rings.splice(0, rings.length - maxRings + 1);
       rings.push({ x: x, y: y, color: color, radius: radius || 30, max: radius || 220, life: life || 0.5, maxLife: life || 0.5 });
     }
 
@@ -938,6 +1012,10 @@
       var activeRun = running && !paused;
       var pulseReady = activeRun && pulse >= 100;
       var dashReady = activeRun && dashCooldown <= 0;
+      var now = performance.now();
+      var interval = isLiteGameRender() ? 180 : 90;
+      if (!state && running && !paused && !over && now - lastHudDomPaint < interval) return;
+      lastHudDomPaint = now;
       if (scoreEl) scoreEl.textContent = score;
       if (comboEl) comboEl.textContent = 'x' + multiplier().toFixed(1);
       if (waveEl) waveEl.textContent = String(wave);
@@ -975,12 +1053,13 @@
     }
 
     function spawnPickup(forceType) {
+      if (isLiteGameRender() && pickups.length >= 5 && !forceType) return;
       var types = ['good', 'good', 'good', 'shield', 'charge'];
       if (lives < level().lives && Math.random() < 0.16) types.push('heal');
       var type = forceType || types[Math.floor(Math.random() * types.length)];
       pickups.push({
-        x: 50 + Math.random() * (canvas.width - 100),
-        y: 50 + Math.random() * (canvas.height - 100),
+        x: 50 + Math.random() * (gameW - 100),
+        y: 50 + Math.random() * (gameH - 100),
         r: type === 'heal' ? 11 : type === 'shield' ? 10 : 9,
         type: type,
         rot: Math.random() * Math.PI * 2,
@@ -989,10 +1068,11 @@
     }
 
     function spawnHazard(kind) {
+      if (hazards.length >= maxHazardCount()) return;
       var cfg = level();
       var edge = Math.floor(Math.random() * 4);
-      var x = edge === 0 ? -28 : edge === 1 ? canvas.width + 28 : Math.random() * canvas.width;
-      var y = edge === 2 ? -28 : edge === 3 ? canvas.height + 28 : Math.random() * canvas.height;
+      var x = edge === 0 ? -28 : edge === 1 ? gameW + 28 : Math.random() * gameW;
+      var y = edge === 2 ? -28 : edge === 3 ? gameH + 28 : Math.random() * gameH;
       var angle = Math.atan2(player.y - y, player.x - x);
       var waveBoost = 1 + (wave - 1) * 0.08;
       var hazard = { x: x, y: y, vx: 0, vy: 0, rot: Math.random() * Math.PI * 2, near: false, kind: kind || 'seeker', elite: false };
@@ -1074,8 +1154,8 @@
       player.faceX = dx;
       player.faceY = dy;
       addParticles(player.x, player.y, '#8a5cff', 18, 190);
-      player.x = clamp(player.x + dx * 110, player.r, canvas.width - player.r);
-      player.y = clamp(player.y + dy * 110, player.r, canvas.height - player.r);
+      player.x = clamp(player.x + dx * 110, player.r, gameW - player.r);
+      player.y = clamp(player.y + dy * 110, player.r, gameH - player.r);
       dashCooldown = 2.6;
       boostFlash = 0.36;
       grace = Math.max(grace, 0.34);
@@ -1115,8 +1195,10 @@
       pickups = [];
       particles = [];
       rings = [];
-      player.x = canvas.width / 2;
-      player.y = canvas.height / 2;
+      lastMobileFramePaint = 0;
+      gameHudCache.key = '';
+      player.x = gameW / 2;
+      player.y = gameH / 2;
       player.faceX = 1;
       player.faceY = 0;
       spawnPickup('good');
@@ -1149,6 +1231,14 @@
 
     function loop(now, id) {
       if (!running || id !== runId) return;
+      if (isLiteGameRender()) {
+        var targetGap = isMobileFullscreen() ? 28 : 24;
+        if (lastMobileFramePaint && now - lastMobileFramePaint < targetGap) {
+          requestAnimationFrame(function (next) { loop(next, id); });
+          return;
+        }
+        lastMobileFramePaint = now;
+      }
       if (paused) {
         last = now;
         draw(now);
@@ -1194,8 +1284,8 @@
         }
       }
 
-      player.x = clamp(player.x, player.r, canvas.width - player.r);
-      player.y = clamp(player.y, player.r, canvas.height - player.r);
+      player.x = clamp(player.x, player.r, gameW - player.r);
+      player.y = clamp(player.y, player.r, gameH - player.r);
       shield = Math.max(0, shield - dt);
       grace = Math.max(0, grace - dt);
       comboTimer = Math.max(0, comboTimer - dt);
@@ -1215,7 +1305,7 @@
         waveClock = 0;
         pulse = clamp(pulse + 14, 0, 100);
         boostFlash = 0.32;
-        addRing(canvas.width * 0.5, canvas.height * 0.5, cfg.color, 60, 0.55);
+        addRing(gameW * 0.5, gameH * 0.5, cfg.color, 60, 0.55);
       }
 
       spawnTimer -= dt;
@@ -1252,7 +1342,9 @@
         h.y += h.vy * dt;
         h.rot += dt * (h.kind === 'runner' ? 7.5 : h.kind === 'brute' ? 1.6 : 4.2);
       });
-      hazards = hazards.filter(function (h) { return h.x > -120 && h.x < canvas.width + 120 && h.y > -120 && h.y < canvas.height + 120; });
+      hazards = hazards.filter(function (h) { return h.x > -120 && h.x < gameW + 120 && h.y > -120 && h.y < gameH + 120; });
+      var maxHazards = maxHazardCount();
+      if (hazards.length > maxHazards) hazards.splice(0, hazards.length - maxHazards);
 
       pickups.forEach(function (p, idx) {
         p.rot += dt * 2.2;
@@ -1349,7 +1441,7 @@
       ctx.rotate(p.rot);
       var color = p.type === 'good' ? '#00ffbf' : p.type === 'shield' ? '#8a5cff' : p.type === 'charge' ? '#ffb14a' : '#ffffff';
       ctx.shadowColor = color;
-      ctx.shadowBlur = 18;
+      ctx.shadowBlur = isLiteGameRender() ? 4 : 18;
       ctx.strokeStyle = 'rgba(255,255,255,.82)';
       ctx.fillStyle = color;
       ctx.lineWidth = 1.2;
@@ -1399,7 +1491,7 @@
       ctx.rotate(h.rot);
       var color = h.elite ? '#ffb14a' : h.kind === 'runner' ? '#ff7c4d' : '#ff3f68';
       ctx.shadowColor = color;
-      ctx.shadowBlur = h.elite ? 28 : 18;
+      ctx.shadowBlur = isLiteGameRender() ? (h.elite ? 8 : 4) : (h.elite ? 28 : 18);
       ctx.fillStyle = color;
       ctx.strokeStyle = 'rgba(255,255,255,.7)';
       ctx.lineWidth = 1.1;
@@ -1428,28 +1520,98 @@
       ctx.restore();
     }
 
+    function drawGameHud(now) {
+      var mobile = isMobileGameInput();
+      var top = isMobileFullscreen() ? 58 : 12;
+      var gap = mobile ? 6 : 8;
+      var chipH = mobile ? 25 : 28;
+      var items = [
+        ['◆', String(score), '#00eaff'],
+        ['×', multiplier().toFixed(1), '#8a5cff'],
+        ['≋', String(wave), '#ffb14a'],
+        ['♥', String(lives), lives <= 1 ? '#ff3f68' : '#ffffff'],
+        ['◎', Math.floor(clamp(pulse, 0, 100)) + '%', pulse >= 100 ? '#00ffbf' : '#00eaff'],
+        ['↯', dashCooldown <= 0 ? 'OK' : dashCooldown.toFixed(1), dashCooldown <= 0 ? '#8a5cff' : '#b8c5df'],
+        ['★', String(best), '#ffe178']
+      ];
+      var key = Math.round(gameW) + '|' + top + '|' + (mobile ? 1 : 0) + '|' + items.map(function (item) { return item.join(':'); }).join('|');
+      ctx.save();
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 1;
+      ctx.font = '800 ' + (mobile ? 12 : 13) + 'px system-ui, sans-serif';
+      if (gameHudCache.key !== key) {
+        var x = 12;
+        var y = top;
+        var chips = [];
+        items.forEach(function (item) {
+          var label = item[0] + ' ' + item[1];
+          var chipW = Math.max(mobile ? 44 : 54, ctx.measureText(label).width + 17);
+          if (x + chipW > gameW - 12) {
+            x = 12;
+            y += chipH + gap;
+          }
+          chips.push({ icon: item[0], value: item[1], color: item[2], x: x, y: y, w: chipW });
+          x += chipW + gap;
+        });
+        gameHudCache = { key: key, chips: chips, width: gameW, top: top, gap: gap, chipH: chipH, mobile: mobile };
+      }
+      gameHudCache.chips.forEach(function (chip) {
+        ctx.fillStyle = 'rgba(4,8,20,.54)';
+        ctx.strokeStyle = 'rgba(255,255,255,.12)';
+        ctx.shadowColor = chip.color;
+        ctx.shadowBlur = isLiteGameRender() ? 0 : 12;
+        var r = chipH / 2;
+        var x = chip.x;
+        var y = chip.y;
+        var chipW = chip.w;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + chipW - r, y);
+        ctx.quadraticCurveTo(x + chipW, y, x + chipW, y + r);
+        ctx.lineTo(x + chipW, y + chipH - r);
+        ctx.quadraticCurveTo(x + chipW, y + chipH, x + chipW - r, y + chipH);
+        ctx.lineTo(x + r, y + chipH);
+        ctx.quadraticCurveTo(x, y + chipH, x, y + chipH - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = chip.color;
+        ctx.fillText(chip.icon, x + 10, y + chipH / 2);
+        ctx.fillStyle = 'rgba(255,255,255,.9)';
+        ctx.fillText(chip.value, x + 27, y + chipH / 2);
+      });
+      ctx.restore();
+    }
+
     function draw(now) {
+      resizeGameCanvas();
+      prepareCanvasDraw();
       var cfg = level();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      var g = ctx.createRadialGradient(canvas.width * 0.5, canvas.height * 0.48, 0, canvas.width * 0.5, canvas.height * 0.48, canvas.width * 0.78);
+      var lite = isLiteGameRender();
+      ctx.clearRect(0, 0, gameW, gameH);
+      var g = ctx.createRadialGradient(gameW * 0.5, gameH * 0.48, 0, gameW * 0.5, gameH * 0.48, gameW * 0.78);
       g.addColorStop(0, pulseFlash > 0 ? 'rgba(0,234,255,.2)' : 'rgba(0,234,255,.12)');
       g.addColorStop(0.46, 'rgba(102,80,255,.08)');
       g.addColorStop(1, 'rgba(2,4,14,.98)');
       ctx.fillStyle = g;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = 'rgba(0,234,255,.08)';
+      ctx.fillRect(0, 0, gameW, gameH);
+      ctx.strokeStyle = lite ? 'rgba(0,234,255,.045)' : 'rgba(0,234,255,.08)';
       ctx.lineWidth = 1;
-      var offset = (now || 0) * 0.018 % 38;
-      for (var x = -38 + offset; x < canvas.width; x += 38) {
+      var gridStep = lite ? 58 : 38;
+      var offset = (now || 0) * 0.018 % gridStep;
+      for (var x = -gridStep + offset; x < gameW; x += gridStep) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x + 32, canvas.height);
+        ctx.lineTo(x + 32, gameH);
         ctx.stroke();
       }
-      for (var y = -38 + offset; y < canvas.height; y += 38) {
+      for (var y = -gridStep + offset; y < gameH; y += gridStep) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
+        ctx.lineTo(gameW, y);
         ctx.stroke();
       }
 
@@ -1487,7 +1649,7 @@
         ctx.globalAlpha = pulseReady ? 0.72 : 0.5;
         ctx.strokeStyle = pulseReady ? '#00eaff' : '#8a5cff';
         ctx.shadowColor = pulseReady ? '#00eaff' : '#8a5cff';
-        ctx.shadowBlur = 28 + Math.sin((now || 0) * 0.01) * 8;
+        ctx.shadowBlur = lite ? 10 : 28 + Math.sin((now || 0) * 0.01) * 8;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(0, 0, player.r + 17 + Math.sin((now || 0) * 0.007) * 3, 0, Math.PI * 2);
@@ -1499,7 +1661,7 @@
         ctx.globalAlpha = 0.58;
         ctx.strokeStyle = '#8a5cff';
         ctx.shadowColor = '#8a5cff';
-        ctx.shadowBlur = 22;
+        ctx.shadowBlur = lite ? 8 : 22;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(0, 0, player.r + 25, 0, Math.PI * 2);
@@ -1507,7 +1669,7 @@
         ctx.restore();
       }
       ctx.shadowColor = shield > 0 ? '#8a5cff' : pulseReady ? '#00eaff' : cfg.color;
-      ctx.shadowBlur = shield > 0 ? 42 : pulseReady ? 40 : 24;
+      ctx.shadowBlur = lite ? (shield > 0 || pulseReady ? 14 : 8) : (shield > 0 ? 42 : pulseReady ? 40 : 24);
       var grad = ctx.createRadialGradient(-6, -6, 2, 0, 0, player.r * 1.5);
       grad.addColorStop(0, '#ffffff');
       grad.addColorStop(0.25, cfg.color);
@@ -1531,64 +1693,56 @@
       ctx.fill();
       ctx.restore();
 
-      ctx.fillStyle = cfg.color;
-      ctx.font = '800 13px system-ui';
-      ctx.textAlign = 'left';
-      ctx.fillText('LEVEL / ' + cfg.label, 18, 30);
-      ctx.fillText('WAVE / ' + wave, 18, 50);
-      ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(255,255,255,.8)';
-      ctx.fillText('MULTI ' + multiplier().toFixed(1) + 'x', canvas.width - 18, 30);
-      ctx.fillText('PULSE ' + Math.floor(pulse) + '%', canvas.width - 18, 50);
-
       if (damageFlash > 0) {
         ctx.save();
         ctx.globalAlpha = Math.min(0.42, damageFlash * 0.42);
-        var red = ctx.createRadialGradient(canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.08, canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.68);
+        var red = ctx.createRadialGradient(gameW * 0.5, gameH * 0.5, gameW * 0.08, gameW * 0.5, gameH * 0.5, gameW * 0.68);
         red.addColorStop(0, 'rgba(255,63,104,0)');
         red.addColorStop(0.62, 'rgba(255,63,104,.24)');
         red.addColorStop(1, 'rgba(255,25,70,.88)');
         ctx.fillStyle = red;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, gameW, gameH);
         ctx.restore();
       }
 
       if (paused) {
         ctx.fillStyle = 'rgba(0,0,0,.46)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, gameW, gameH);
         ctx.fillStyle = '#fff';
         ctx.font = '900 34px system-ui';
         ctx.textAlign = 'center';
-        ctx.fillText('已暂停', canvas.width / 2, canvas.height / 2 - 8);
+        ctx.fillText('已暂停', gameW / 2, gameH / 2 - 8);
         ctx.fillStyle = '#b7f7ff';
         ctx.font = '700 17px system-ui';
-        ctx.fillText(isMobileGameInput() ? '点暂停按钮继续' : '点击继续', canvas.width / 2, canvas.height / 2 + 28);
+        ctx.fillText(isMobileGameInput() ? '点暂停按钮继续' : '点击继续', gameW / 2, gameH / 2 + 28);
       }
 
       if (!running && !over) {
         ctx.fillStyle = 'rgba(0,0,0,.42)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, gameW, gameH);
         ctx.fillStyle = '#fff';
         ctx.font = '900 30px system-ui';
         ctx.textAlign = 'center';
-        ctx.fillText('光核闪避', canvas.width / 2, canvas.height / 2 - 18);
+        ctx.fillText('光核闪避', gameW / 2, gameH / 2 - 18);
         ctx.fillStyle = '#b7f7ff';
         ctx.font = '600 16px system-ui';
         ctx.font = '700 17px system-ui';
-        ctx.fillText(isMobileGameInput() ? '点击开始按钮' : '点击开始', canvas.width / 2, canvas.height / 2 + 17);
+        ctx.fillText(isMobileGameInput() ? '点击开始按钮' : '点击开始', gameW / 2, gameH / 2 + 17);
       }
 
       if (over) {
         ctx.fillStyle = 'rgba(0,0,0,.52)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, gameW, gameH);
         ctx.fillStyle = '#fff';
         ctx.font = '900 34px system-ui';
         ctx.textAlign = 'center';
-        ctx.fillText('再来一局', canvas.width / 2, canvas.height / 2 - 6);
+        ctx.fillText('再来一局', gameW / 2, gameH / 2 - 6);
         ctx.fillStyle = '#a9f8ff';
         ctx.font = '600 16px system-ui';
-        ctx.fillText(level().label + ' · WAVE ' + wave + ' · ' + score + ' 分', canvas.width / 2, canvas.height / 2 + 28);
+        ctx.fillText(level().label + ' · WAVE ' + wave + ' · ' + score + ' 分', gameW / 2, gameH / 2 + 28);
       }
+
+      drawGameHud(now);
     }
 
     levelButtons.forEach(function (btn) {
