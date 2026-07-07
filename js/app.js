@@ -5,6 +5,38 @@
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) { return Array.prototype.slice.call((root || document).querySelectorAll(s)); };
 
+  function safeAnimate(el, frames, options) {
+    if (!el || !el.animate) return null;
+    try { return el.animate(frames, options); } catch (e) { return null; }
+  }
+
+  function safeSetPointerCapture(el, pointerId) {
+    if (!el || !el.setPointerCapture) return;
+    try { el.setPointerCapture(pointerId); } catch (e) {}
+  }
+
+  function safeStorageGet(key, fallback) {
+    try { return window.localStorage ? window.localStorage.getItem(key) || fallback : fallback; }
+    catch (e) { return fallback; }
+  }
+
+  function safeStorageSet(key, value) {
+    try { if (window.localStorage) window.localStorage.setItem(key, value); }
+    catch (e) {}
+  }
+
+  function setPagePerformanceMode(active) {
+    var next = !!active;
+    if (document.body.classList.contains('game-performance-mode') === next) return;
+    document.body.classList.toggle('game-performance-mode', next);
+    try { document.dispatchEvent(new CustomEvent('ai:performance-mode', { detail: { active: next } })); }
+    catch (e) {
+      var ev = document.createEvent('Event');
+      ev.initEvent('ai:performance-mode', false, false);
+      document.dispatchEvent(ev);
+    }
+  }
+
   function showToast(message) {
     var toast = $('#toast');
     if (!toast) return;
@@ -153,13 +185,13 @@
     var canvas = $('#neuralBg');
     if (!canvas) return;
     var ctx = canvas.getContext('2d', { alpha: true });
-    var w = 0, h = 0, dpr = 1, tick = 0, particles = [];
+    var w = 0, h = 0, dpr = 1, tick = 0, particles = [], bgRaf = 0;
     var isMobileBg = window.matchMedia('(max-width: 700px), (pointer: coarse)').matches;
-    var count = prefersReducedMotion ? 24 : (isMobileBg ? 30 : 86);
+    var count = prefersReducedMotion ? 18 : (isMobileBg ? 22 : 72);
 
     function resize() {
       isMobileBg = window.matchMedia('(max-width: 700px), (pointer: coarse)').matches;
-      count = prefersReducedMotion ? 24 : (isMobileBg ? 30 : 86);
+      count = prefersReducedMotion ? 18 : (isMobileBg ? 22 : 72);
       dpr = Math.min(isMobileBg ? 1.25 : 2, window.devicePixelRatio || 1);
       w = canvas.width = Math.floor(window.innerWidth * dpr);
       h = canvas.height = Math.floor(window.innerHeight * dpr);
@@ -178,7 +210,17 @@
       }
     }
 
+    function backgroundActive() {
+      return !prefersReducedMotion && !document.hidden && !document.body.classList.contains('game-performance-mode');
+    }
+
+    function scheduleBackground() {
+      if (!bgRaf && backgroundActive()) bgRaf = requestAnimationFrame(draw);
+    }
+
     function draw() {
+      bgRaf = 0;
+      if (!backgroundActive()) return;
       tick += 1;
       ctx.clearRect(0, 0, w, h);
       var grad = ctx.createRadialGradient(w * 0.5, h * 0.46, 0, w * 0.5, h * 0.46, Math.max(w, h) * 0.62);
@@ -215,12 +257,18 @@
           }
         }
       }
-      if (!prefersReducedMotion) requestAnimationFrame(draw);
+      scheduleBackground();
     }
 
     resize();
-    window.addEventListener('resize', resize, { passive: true });
-    draw();
+    window.addEventListener('resize', function () { resize(); scheduleBackground(); }, { passive: true });
+    document.addEventListener('visibilitychange', scheduleBackground);
+    document.addEventListener('ai:performance-mode', scheduleBackground);
+    if (prefersReducedMotion) {
+      ctx.clearRect(0, 0, w, h);
+    } else {
+      scheduleBackground();
+    }
   }
 
   var galleryData = [
@@ -320,6 +368,25 @@
   function initVideoWall() {
     var videos = $$('.video-frame video[data-src]');
     if (!videos.length) return;
+    var loadedVideos = [];
+
+    function shouldPlayVideo() {
+      return !document.hidden && !document.body.classList.contains('game-performance-mode') && !(navigator.connection && navigator.connection.saveData);
+    }
+
+    function playVideo(video) {
+      if (!shouldPlayVideo()) return;
+      var p = video.play();
+      if (p && p.catch) p.catch(function () {});
+    }
+
+    function syncVideos() {
+      loadedVideos.forEach(function (video) {
+        if (shouldPlayVideo()) playVideo(video);
+        else video.pause();
+      });
+    }
+
     function load(video) {
       if (video.dataset.loaded) return;
       var source = document.createElement('source');
@@ -327,6 +394,7 @@
       source.type = video.dataset.src.indexOf('.webm') > -1 ? 'video/webm' : 'video/mp4';
       video.appendChild(source);
       video.dataset.loaded = '1';
+      loadedVideos.push(video);
       video.addEventListener('error', function () {
         if (video.dataset.fallback && video.currentSrc.indexOf(video.dataset.fallback) === -1) {
           video.innerHTML = '';
@@ -335,13 +403,11 @@
           fb.type = 'video/mp4';
           video.appendChild(fb);
           video.load();
-          var fp = video.play();
-          if (fp && fp.catch) fp.catch(function () {});
+          playVideo(video);
         }
       }, { once: true });
       video.load();
-      var p = video.play();
-      if (p && p.catch) p.catch(function () {});
+      playVideo(video);
     }
     if (!('IntersectionObserver' in window)) { videos.forEach(load); return; }
     var io = new IntersectionObserver(function (entries) {
@@ -350,6 +416,8 @@
       });
     }, { rootMargin: '320px 0px', threshold: 0.04 });
     videos.forEach(function (v) { io.observe(v); });
+    document.addEventListener('visibilitychange', syncVideos);
+    document.addEventListener('ai:performance-mode', syncVideos);
   }
 
   function initGallery() {
@@ -477,7 +545,7 @@
       viewRx = isSmall ? -5 : -6;
       viewRy = 0;
       applyStageView();
-      stage.animate([
+      safeAnimate(stage, [
         { filter: 'drop-shadow(0 0 0 rgba(0,245,255,0))' },
         { filter: 'drop-shadow(0 0 32px rgba(0,245,255,.55))' },
         { filter: 'drop-shadow(0 0 0 rgba(0,245,255,0))' }
@@ -506,14 +574,22 @@
       }
     }
 
+    function drumActive() {
+      return sceneVisible && !document.hidden && !document.body.classList.contains('game-performance-mode');
+    }
+
+    function scheduleDrum() {
+      if (!drumRaf && drumActive()) drumRaf = requestAnimationFrame(tickDrum);
+    }
+
     function tickDrum(now) {
-      if (!sceneVisible) {
+      drumRaf = 0;
+      if (!drumActive()) {
         drumLast = 0;
-        drumRaf = requestAnimationFrame(tickDrum);
         return;
       }
       if (isSmall && drumPaintLast && now - drumPaintLast < 33) {
-        drumRaf = requestAnimationFrame(tickDrum);
+        scheduleDrum();
         return;
       }
       drumPaintLast = now;
@@ -527,7 +603,7 @@
       });
       var core = $('.memory-orbit-core', scene);
       if (core) core.style.setProperty('--core-spin', ((now * 0.018) % 360).toFixed(2) + 'deg');
-      drumRaf = requestAnimationFrame(tickDrum);
+      scheduleDrum();
     }
 
     function setBackground(index) {
@@ -604,7 +680,7 @@
     $$('[data-memory-zoom]', scene).forEach(function (btn) {
       btn.addEventListener('click', function () {
         setZoom(radiusScale + (btn.dataset.memoryZoom === 'in' ? 0.08 : -0.08));
-        scene.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.006)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
+        safeAnimate(scene, [{ transform: 'scale(1)' }, { transform: 'scale(1.006)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
       });
     });
 
@@ -623,7 +699,7 @@
         orbX = e.clientX;
         orbY = e.clientY;
         orb.classList.add('is-dragging');
-        if (orb.setPointerCapture) orb.setPointerCapture(e.pointerId);
+        safeSetPointerCapture(orb, e.pointerId);
         e.preventDefault();
       });
       orb.addEventListener('pointermove', function (e) {
@@ -646,16 +722,20 @@
     if ('IntersectionObserver' in window) {
       var observer = new IntersectionObserver(function (entries) {
         sceneVisible = entries[0] ? entries[0].isIntersecting : true;
+        scheduleDrum();
       }, { rootMargin: '220px 0px' });
       observer.observe(scene);
     }
 
-    window.addEventListener('resize', build, { passive: true });
+    window.addEventListener('resize', function () { build(); scheduleDrum(); }, { passive: true });
+    document.addEventListener('visibilitychange', scheduleDrum);
+    document.addEventListener('ai:performance-mode', scheduleDrum);
     buildSlides();
     build();
     cancelAnimationFrame(drumRaf);
+    drumRaf = 0;
     drumLast = 0;
-    drumRaf = requestAnimationFrame(tickDrum);
+    scheduleDrum();
   }
 
   function buildLightbox() {
@@ -750,7 +830,7 @@
     }
     if (pulseBtn) {
       pulseBtn.addEventListener('click', function () {
-        document.documentElement.animate([
+        safeAnimate(document.documentElement, [
           { filter: 'saturate(1)' },
           { filter: 'saturate(1.8) hue-rotate(24deg)' },
           { filter: 'saturate(1)' }
@@ -832,10 +912,11 @@
     var rings = [];
     var lastHudDomPaint = 0;
     var lastMobileFramePaint = 0;
+    var lastSizeCheck = 0;
     var gameHudCache = { key: '', chips: [], width: 0, top: 0, gap: 0, chipH: 0, mobile: false };
 
     function bestKey() { return 'lightCoreDodgeBest_' + currentLevel; }
-    function readBest() { best = Number(localStorage.getItem(bestKey()) || 0); }
+    function readBest() { best = Number(safeStorageGet(bestKey(), '0') || 0); }
     function level() { return levels[currentLevel] || levels.normal; }
     function multiplier() { return 1 + Math.min(3, combo * 0.14); }
     function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
@@ -843,7 +924,7 @@
 
     function fullscreenElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
     function isTouchLayout() { return window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 900; }
-    function isMobileGameInput() { return window.matchMedia('(pointer: coarse)').matches || ((navigator.maxTouchPoints || 0) > 0 && window.innerWidth <= 900); }
+    function isMobileGameInput() { return isTouchLayout() || ((navigator.maxTouchPoints || 0) > 0 && window.innerWidth <= 900); }
     function isMobileFullscreen() { return fullscreenElement() === gameCard && isTouchLayout(); }
     function isLiteGameRender() { return isTouchLayout(); }
     function maxHazardCount() {
@@ -887,7 +968,11 @@
       obj.y = clamp(obj.y / oldH * gameH, obj.r || 0, gameH - (obj.r || 0));
     }
 
-    function resizeGameCanvas() {
+    function resizeGameCanvas(force) {
+      var sizeNow = performance.now();
+      var sizeInterval = isLiteGameRender() ? 260 : 180;
+      if (!force && lastSizeCheck && sizeNow - lastSizeCheck < sizeInterval) return false;
+      lastSizeCheck = sizeNow;
       var oldW = gameW;
       var oldH = gameH;
       var active = fullscreenElement() === gameCard;
@@ -928,7 +1013,7 @@
     }
 
     function prepareCanvasDraw() {
-      if (!canvas.width || !canvas.height) resizeGameCanvas();
+      if (!canvas.width || !canvas.height) resizeGameCanvas(true);
       ctx.setTransform(renderRatio, 0, 0, renderRatio, 0, 0);
     }
 
@@ -945,9 +1030,10 @@
       if (mobileExitBtn) mobileExitBtn.hidden = !active;
       if (mobilePauseBtn) mobilePauseBtn.hidden = !(mobileActive && running && !over);
       if (mobileStartBtn) mobileStartBtn.hidden = !mobileActive;
+      setPagePerformanceMode(active);
       if (!mobileActive) resetJoystick();
       requestAnimationFrame(function () {
-        resizeGameCanvas();
+        resizeGameCanvas(true);
         draw(performance.now());
       });
     }
@@ -1213,7 +1299,7 @@
       runId += 1;
       if (score > best) {
         best = score;
-        localStorage.setItem(bestKey(), String(best));
+        safeStorageSet(bestKey(), String(best));
       }
       setReadyClasses(false, false);
       updateHud('已结束 · ' + level().label + ' · WAVE ' + wave);
@@ -1588,7 +1674,7 @@
     }
 
     function draw(now) {
-      resizeGameCanvas();
+      resizeGameCanvas(false);
       prepareCanvasDraw();
       var cfg = level();
       var lite = isLiteGameRender();
@@ -1773,7 +1859,7 @@
         if (!running || paused || over) return;
         joystick.active = true;
         joystick.pointerId = e.pointerId;
-        joystickZone.setPointerCapture && joystickZone.setPointerCapture(e.pointerId);
+        safeSetPointerCapture(joystickZone, e.pointerId);
         updateJoystickFromClient(e.clientX, e.clientY);
       }, { passive: false });
       joystickZone.addEventListener('pointermove', function (e) {
@@ -1806,7 +1892,7 @@
     canvas.addEventListener('pointermove', function (e) { if (running) pointerMove(e); });
     canvas.addEventListener('pointerdown', function (e) {
       if (isMobileGameInput() && (!running || paused || over)) return;
-      if (!isMobileFullscreen() && canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+      if (!isMobileFullscreen()) safeSetPointerCapture(canvas, e.pointerId);
       if (paused) { togglePause(); return; }
       if (!running) reset();
       pointerMove(e);
@@ -1850,8 +1936,6 @@
     initMembers();
     initJoinActions();
     initGame();
-    initReveal();
-    console.log('%cAI Club / Pure Frontend / Ready', 'color:#00f5ff;font-size:16px;font-weight:900');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
