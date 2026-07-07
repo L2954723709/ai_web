@@ -69,7 +69,7 @@ body:after{content:"";position:fixed;inset:0;z-index:-2;background:repeating-lin
 .game-card{position:relative;overflow:hidden;isolation:isolate}
 .game-card::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;z-index:3;background:radial-gradient(circle at 50% 50%,rgba(255,80,110,0),rgba(255,70,100,.12) 58%,rgba(255,45,87,.48));transition:opacity .22s ease}
 .game-card.is-hit::after{opacity:.95}
-.game-mobile-ui,.mobile-float-exit{display:none}
+.game-mobile-ui,.mobile-float-exit,.mobile-float-start{display:none}
 .game-card.pulse-ready #gameCanvas{box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),0 24px 90px rgba(0,234,255,.2),0 0 0 1px rgba(0,234,255,.18)}
 .game-card.dash-ready #gameCanvas{box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),0 24px 90px rgba(138,92,255,.18),0 0 0 1px rgba(138,92,255,.16)}
 .game-actions .btn.is-ready,.skill-button.is-ready{border-color:rgba(0,234,255,.65);background:linear-gradient(135deg,rgba(0,234,255,.24),rgba(138,92,255,.22) 55%,rgba(255,61,242,.2));box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 0 36px rgba(0,234,255,.24)}
@@ -93,10 +93,11 @@ body:after{content:"";position:fixed;inset:0;z-index:-2;background:repeating-lin
   .game-card.is-mobile-fullscreen .game-hud span{min-height:0;padding:9px 8px;border-radius:16px;background:rgba(5,9,20,.5);backdrop-filter:blur(18px);font-size:11px;line-height:1.15;text-align:center}
   .game-card.is-mobile-fullscreen .game-hud strong{margin-top:5px;font-size:15px}
   .game-card.is-mobile-fullscreen .game-mobile-ui{display:block;position:absolute;inset:0;z-index:6;pointer-events:none}
-  .game-card.is-mobile-fullscreen .mobile-float-exit{display:inline-flex;align-items:center;justify-content:center}
+  .game-card.is-mobile-fullscreen .mobile-float-exit,.game-card.is-mobile-fullscreen .mobile-float-start{display:inline-flex;align-items:center;justify-content:center}
   .game-card.is-mobile-fullscreen .joystick-zone,
   .game-card.is-mobile-fullscreen .skill-pad,
-  .game-card.is-mobile-fullscreen .mobile-float-exit{pointer-events:auto}
+  .game-card.is-mobile-fullscreen .mobile-float-exit,
+  .game-card.is-mobile-fullscreen .mobile-float-start{pointer-events:auto}
   .joystick-zone{position:absolute;left:max(14px,env(safe-area-inset-left));bottom:max(16px,calc(env(safe-area-inset-bottom) + 10px));width:min(34vw,164px);height:min(34vw,164px);border-radius:50%;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.12),rgba(255,255,255,.04) 58%,rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 0 40px rgba(255,255,255,.05),0 18px 44px rgba(0,0,0,.28);backdrop-filter:blur(20px)}
   .joystick-base{position:absolute;inset:12%;border-radius:50%;border:1px solid rgba(0,234,255,.16);box-shadow:inset 0 0 26px rgba(0,234,255,.08)}
   .joystick-base::before,.joystick-base::after{content:"";position:absolute;left:50%;top:50%;background:rgba(255,255,255,.08);transform:translate(-50%,-50%)}
@@ -148,10 +149,12 @@ body:after{content:"";position:fixed;inset:0;z-index:-2;background:repeating-lin
 }
 
 /* === Pause control v14 === */
-.game-mobile-ui,.mobile-float-exit,.mobile-float-pause{display:none}
+.game-mobile-ui,.mobile-float-exit,.mobile-float-pause,.mobile-float-start{display:none}
+.mobile-float-pause[hidden],.mobile-float-exit[hidden],.mobile-float-start[hidden]{display:none!important}
 .mobile-float-pause{position:absolute;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));z-index:7;min-width:88px;min-height:42px;padding:0 16px;border:1px solid rgba(0,234,255,.28);border-radius:999px;background:rgba(5,9,20,.52);backdrop-filter:blur(20px);color:#fff;cursor:pointer;box-shadow:0 12px 34px rgba(0,0,0,.3),0 0 28px rgba(0,234,255,.12)}
+.mobile-float-start{position:absolute;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:7;min-width:82px;min-height:42px;padding:0 18px;border:1px solid rgba(255,255,255,.2);border-radius:999px;background:linear-gradient(135deg,rgba(0,234,255,.42),rgba(138,92,255,.34));backdrop-filter:blur(20px);color:#fff;cursor:pointer;font-weight:900;letter-spacing:.08em;box-shadow:0 14px 36px rgba(0,0,0,.32),0 0 30px rgba(0,234,255,.18)}
 .game-card.is-fullscreen .mobile-float-pause{display:inline-flex;align-items:center;justify-content:center;pointer-events:auto}
-.game-card.is-mobile-fullscreen .mobile-float-pause{display:inline-flex;align-items:center;justify-content:center;pointer-events:auto}
+.game-card.is-mobile-fullscreen .mobile-float-pause,.game-card.is-mobile-fullscreen .mobile-float-start{display:inline-flex;align-items:center;justify-content:center;pointer-events:auto}
 #gamePause:disabled{opacity:.45;cursor:not-allowed;filter:saturate(.55)}
 
 /* 3D memory orbit v16 */

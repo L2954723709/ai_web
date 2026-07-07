@@ -770,6 +770,7 @@
     var mobilePulseBtn = $('#mobilePulseBtn');
     var mobileDashBtn = $('#mobileDashBtn');
     var mobilePauseBtn = $('#mobilePauseBtn');
+    var mobileStartBtn = $('#mobileStartBtn');
     var mobileExitBtn = $('#mobileExitBtn');
     var joystickZone = $('#joystickZone');
     var joystickStick = $('#joystickStick');
@@ -877,7 +878,8 @@
       }
       fullscreenBtn.textContent = active ? '退出全屏' : '全屏';
       if (mobileExitBtn) mobileExitBtn.hidden = !active;
-      if (mobilePauseBtn) mobilePauseBtn.hidden = !(active && running && !over);
+      if (mobilePauseBtn) mobilePauseBtn.hidden = !(mobileActive && running && !over);
+      if (mobileStartBtn) mobileStartBtn.hidden = !mobileActive;
       if (!mobileActive) resetJoystick();
       draw(performance.now());
     }
@@ -947,7 +949,8 @@
       startBtn.textContent = running ? '重新开始' : over ? '再玩一局' : '开始游戏';
       startBtn.disabled = false;
       if (pauseBtn) { pauseBtn.textContent = paused ? '继续' : '暂停'; pauseBtn.disabled = !(running && !over); }
-      if (mobilePauseBtn) { mobilePauseBtn.textContent = paused ? '继续' : '暂停'; mobilePauseBtn.hidden = !(fullscreenElement() === gameCard && running && !over); }
+      if (mobilePauseBtn) { mobilePauseBtn.textContent = paused ? '继续' : '暂停'; mobilePauseBtn.hidden = !(fullscreenElement() === gameCard && isTouchLayout() && running && !over); }
+      if (mobileStartBtn) { mobileStartBtn.textContent = running ? '重开' : over ? '再来' : '开始'; mobileStartBtn.hidden = !(fullscreenElement() === gameCard && isTouchLayout()); }
       pulseBtn.disabled = !pulseReady;
       dashBtn.disabled = !dashReady;
       if (mobilePulseBtn) mobilePulseBtn.disabled = !pulseReady;
@@ -1602,6 +1605,7 @@
     if (mobilePulseBtn) mobilePulseBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); usePulse(); });
     if (mobileDashBtn) mobileDashBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); useDash(); });
     if (mobilePauseBtn) mobilePauseBtn.addEventListener('click', togglePause);
+    if (mobileStartBtn) mobileStartBtn.addEventListener('click', reset);
     if (mobileExitBtn) mobileExitBtn.addEventListener('click', toggleFullscreen);
     document.addEventListener('fullscreenchange', syncFullscreenButton);
     document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
