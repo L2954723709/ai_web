@@ -302,15 +302,19 @@
     }
 
     $('.cinema-main', stage).addEventListener('click', function () { openLightbox(active); });
-    setImage(0, true);
-    if (!prefersReducedMotion) {
-      timer = window.setInterval(function () { setImage(active + 1, false); }, 4200);
-      stage.addEventListener('mouseenter', function () { clearInterval(timer); });
-      stage.addEventListener('mouseleave', function () {
-        clearInterval(timer);
-        timer = window.setInterval(function () { setImage(active + 1, false); }, 4200);
-      });
+    function startAutoShowcase() {
+      clearInterval(timer);
+      timer = window.setInterval(function () {
+        if (document.hidden) return;
+        setImage(active + 1, false);
+      }, prefersReducedMotion ? 5600 : 4200);
     }
+
+    setImage(0, true);
+    startAutoShowcase();
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) startAutoShowcase();
+    });
   }
 
   function initVideoWall() {
@@ -830,6 +834,7 @@
 
     function fullscreenElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
     function isTouchLayout() { return window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 900; }
+    function isMobileGameInput() { return window.matchMedia('(pointer: coarse)').matches || ((navigator.maxTouchPoints || 0) > 0 && window.innerWidth <= 900); }
     function isMobileFullscreen() { return fullscreenElement() === gameCard && isTouchLayout(); }
 
     function setReadyClasses(pulseReady, dashReady) {
@@ -1554,7 +1559,7 @@
         ctx.fillText('已暂停', canvas.width / 2, canvas.height / 2 - 8);
         ctx.fillStyle = '#b7f7ff';
         ctx.font = '700 17px system-ui';
-        ctx.fillText('点击继续', canvas.width / 2, canvas.height / 2 + 28);
+        ctx.fillText(isMobileGameInput() ? '点暂停按钮继续' : '点击继续', canvas.width / 2, canvas.height / 2 + 28);
       }
 
       if (!running && !over) {
@@ -1567,7 +1572,7 @@
         ctx.fillStyle = '#b7f7ff';
         ctx.font = '600 16px system-ui';
         ctx.font = '700 17px system-ui';
-        ctx.fillText('点击开始', canvas.width / 2, canvas.height / 2 + 17);
+        ctx.fillText(isMobileGameInput() ? '点击开始按钮' : '点击开始', canvas.width / 2, canvas.height / 2 + 17);
       }
 
       if (over) {
@@ -1606,7 +1611,7 @@
       joystickZone.addEventListener('pointerdown', function (e) {
         if (!isMobileFullscreen()) return;
         e.preventDefault();
-        if (!running) reset();
+        if (!running || paused || over) return;
         joystick.active = true;
         joystick.pointerId = e.pointerId;
         joystickZone.setPointerCapture && joystickZone.setPointerCapture(e.pointerId);
@@ -1641,6 +1646,7 @@
     canvas.addEventListener('pointerenter', function (e) { pointerMove(e); });
     canvas.addEventListener('pointermove', function (e) { if (running) pointerMove(e); });
     canvas.addEventListener('pointerdown', function (e) {
+      if (isMobileGameInput() && (!running || paused || over)) return;
       if (!isMobileFullscreen() && canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
       if (paused) { togglePause(); return; }
       if (!running) reset();
@@ -1653,7 +1659,12 @@
       if (running && pointer.active) movePointerToClient(e.clientX, e.clientY);
     });
     window.addEventListener('blur', function () { if (!running) pointer.active = false; resetJoystick(); });
-    canvas.addEventListener('touchstart', function (e) { if (paused) { togglePause(); return; } if (!running) reset(); pointerMove(e); }, { passive: true });
+    canvas.addEventListener('touchstart', function (e) {
+      if (isMobileGameInput() && (!running || paused || over)) return;
+      if (paused) { togglePause(); return; }
+      if (!running) reset();
+      pointerMove(e);
+    }, { passive: true });
     canvas.addEventListener('touchmove', function (e) {
       if (running) {
         e.preventDefault();

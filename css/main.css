@@ -282,3 +282,22 @@ body:after{content:"";position:fixed;inset:0;z-index:-2;background:repeating-lin
 @media (max-width:700px), (pointer:coarse){
   .memory-orbit-card{-webkit-box-reflect:below 0 linear-gradient(transparent,transparent)!important}
 }
+
+/* Desktop motion reliability v32 */
+.photo-orbit,.orbit-card,.orbit-card img,.orbit-core,.cinema-main img,.float-photo,.marquee-track,.memory-orbit-particles,.memory-orbit-core img{animation-play-state:running!important}
+.memory-orbit-scene .memory-orbit-lane{animation-play-state:running!important}
+@media (prefers-reduced-motion:reduce){
+  .photo-orbit{animation:stageFloat 9s ease-in-out infinite!important;animation-duration:9s!important;animation-iteration-count:infinite!important}
+  .orbit-card.is-main{animation:mainCard 8s ease-in-out infinite!important;animation-duration:8s!important;animation-iteration-count:infinite!important}
+  .orbit-card:not(.is-main):nth-child(2){animation:sideFloat 7.2s ease-in-out infinite!important;animation-iteration-count:infinite!important}
+  .orbit-card:nth-child(3){animation:sideFloat 7.8s ease-in-out -.8s infinite!important;animation-iteration-count:infinite!important}
+  .orbit-card:nth-child(4){animation:sideFloat 7.5s ease-in-out -1.8s infinite!important;animation-iteration-count:infinite!important}
+  .orbit-card img{animation:photoDrift 10s ease-in-out infinite!important;animation-duration:10s!important;animation-iteration-count:infinite!important}
+  .orbit-core{animation:corePulse 3.6s ease-in-out infinite!important;animation-iteration-count:infinite!important}
+  .cinema-main img{animation:kenBurns 10s ease-in-out infinite!important;animation-iteration-count:infinite!important}
+  .float-photo{animation:miniFloat 7.5s ease-in-out infinite!important;animation-iteration-count:infinite!important}
+  .marquee-track{animation:marquee 44s linear infinite!important;animation-iteration-count:infinite!important}
+  .memory-orbit-core img{animation:coreImageSelfSpin 28s linear infinite!important;animation-iteration-count:infinite!important}
+  .memory-orbit-particles{animation:particleShellSpin 34s linear infinite!important;animation-iteration-count:infinite!important}
+  .memory-orbit-particles i{animation:particleBlink 3s ease-in-out infinite alternate!important;animation-iteration-count:infinite!important}
+}
