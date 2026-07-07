@@ -154,10 +154,13 @@
     if (!canvas) return;
     var ctx = canvas.getContext('2d', { alpha: true });
     var w = 0, h = 0, dpr = 1, tick = 0, particles = [];
-    var count = prefersReducedMotion ? 36 : 86;
+    var isMobileBg = window.matchMedia('(max-width: 700px), (pointer: coarse)').matches;
+    var count = prefersReducedMotion ? 24 : (isMobileBg ? 30 : 86);
 
     function resize() {
-      dpr = Math.min(2, window.devicePixelRatio || 1);
+      isMobileBg = window.matchMedia('(max-width: 700px), (pointer: coarse)').matches;
+      count = prefersReducedMotion ? 24 : (isMobileBg ? 30 : 86);
+      dpr = Math.min(isMobileBg ? 1.25 : 2, window.devicePixelRatio || 1);
       w = canvas.width = Math.floor(window.innerWidth * dpr);
       h = canvas.height = Math.floor(window.innerHeight * dpr);
       canvas.style.width = window.innerWidth + 'px';
@@ -197,11 +200,11 @@
         ctx.fillStyle = p.hue === 186 ? 'rgba(0,245,255,.72)' : 'rgba(255,61,242,.58)';
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fill();
-        for (var j = i + 1; j < particles.length; j++) {
+        for (var j = i + 1; j < particles.length; j += (isMobileBg ? 2 : 1)) {
           var q = particles[j];
           var dx = p.x - q.x, dy = p.y - q.y;
           var dist = Math.sqrt(dx * dx + dy * dy);
-          var max = 135 * dpr;
+          var max = (isMobileBg ? 92 : 135) * dpr;
           if (dist < max) {
             ctx.strokeStyle = 'rgba(0,245,255,' + ((1 - dist / max) * 0.16).toFixed(3) + ')';
             ctx.lineWidth = 1 * dpr;
@@ -421,13 +424,16 @@
     var viewRx = isSmall ? -5 : -6;
     var viewRy = 0;
     var drumLast = 0;
+    var drumPaintLast = 0;
     var drumRaf = 0;
     var activeBg = 0;
+    var particleSmallMode = null;
+    var sceneVisible = true;
 
     function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 
     function rowItems(row) {
-      var count = isSmall ? 9 : 12;
+      var count = isSmall ? 8 : 12;
       var offset = row * 4;
       var list = [];
       for (var i = 0; i < count; i++) list.push(galleryData[(offset + i) % galleryData.length]);
@@ -475,23 +481,40 @@
     }
 
     function buildParticles() {
-      if (!particles || particles.children.length) return;
-      var total = 42;
+      if (!particles) return;
+      var small = window.matchMedia('(max-width: 700px)').matches;
+      if (particles.children.length && particleSmallMode === small) return;
+      particleSmallMode = small;
+      particles.innerHTML = '';
+      var total = small ? 18 : 42;
       for (var i = 0; i < total; i++) {
         var dot = document.createElement('i');
         var ring = i % 3;
+        var r0 = small ? 104 : 158;
+        var r1 = small ? 134 : 194;
+        var r2 = small ? 166 : 232;
         dot.style.setProperty('--a', (i * 360 / total).toFixed(2) + 'deg');
-        dot.style.setProperty('--r', (ring === 0 ? 158 : ring === 1 ? 194 : 232) + 'px');
-        dot.style.setProperty('--z', ((i % 7) - 3) * 16 + 'px');
-        dot.style.setProperty('--s', (ring === 0 ? 4 : ring === 1 ? 3 : 2) + 'px');
-        dot.style.setProperty('--d', (-i * 0.16).toFixed(2) + 's');
+        dot.style.setProperty('--r', (ring === 0 ? r0 : ring === 1 ? r1 : r2) + 'px');
+        dot.style.setProperty('--z', ((i % 7) - 3) * (small ? 10 : 16) + 'px');
+        dot.style.setProperty('--s', (small ? (ring === 0 ? 3 : 2) : (ring === 0 ? 4 : ring === 1 ? 3 : 2)) + 'px');
+        dot.style.setProperty('--d', (-i * 0.18).toFixed(2) + 's');
         particles.appendChild(dot);
       }
     }
 
     function tickDrum(now) {
+      if (!sceneVisible) {
+        drumLast = 0;
+        drumRaf = requestAnimationFrame(tickDrum);
+        return;
+      }
+      if (isSmall && drumPaintLast && now - drumPaintLast < 33) {
+        drumRaf = requestAnimationFrame(tickDrum);
+        return;
+      }
+      drumPaintLast = now;
       if (!drumLast) drumLast = now;
-      var dt = Math.min(48, now - drumLast) / 1000;
+      var dt = Math.min(isSmall ? 66 : 48, now - drumLast) / 1000;
       drumLast = now;
       var speeds = isSmall ? [-18, 22, -18] : [-14, 18, -14];
       lanes.forEach(function (lane, row) {
@@ -567,6 +590,7 @@
     function build() {
       isSmall = window.matchMedia('(max-width: 700px)').matches;
       lanes.forEach(buildLane);
+      buildParticles();
       setZoom(radiusScale);
       viewRx = clamp(viewRx, isSmall ? -24 : -32, isSmall ? 18 : 24);
       applyAllLanes();
@@ -615,9 +639,15 @@
       orb.addEventListener('dblclick', resetStageView);
     }
 
+    if ('IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function (entries) {
+        sceneVisible = entries[0] ? entries[0].isIntersecting : true;
+      }, { rootMargin: '220px 0px' });
+      observer.observe(scene);
+    }
+
     window.addEventListener('resize', build, { passive: true });
     buildSlides();
-    buildParticles();
     build();
     cancelAnimationFrame(drumRaf);
     drumLast = 0;

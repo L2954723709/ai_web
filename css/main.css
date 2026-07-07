@@ -246,3 +246,39 @@ body:after{content:"";position:fixed;inset:0;z-index:-2;background:repeating-lin
 .memory-orbit-card,.memory-orbit-controls button,.memory-orbit-home{cursor:pointer!important}
 .memory-orbit-orb{cursor:grab!important}
 .memory-orbit-orb.is-dragging{cursor:grabbing!important}
+
+/* Mobile performance mode v30 */
+@media (max-width:700px), (pointer:coarse){
+  .cursor-orb{display:none!important}
+  #neuralBg{opacity:.55!important}
+  .aurora:before{animation-duration:34s!important;opacity:.55!important}
+  .grid-noise{opacity:.28!important;background-size:96px 96px,96px 96px,220px 220px!important}
+  .memory-orbit-scene{box-shadow:0 24px 72px rgba(0,0,0,.44),0 0 34px rgba(0,245,255,.08),inset 0 1px rgba(255,255,255,.1)!important;contain:layout paint style!important;perspective:1250px!important}
+  .memory-orbit-scene:before{opacity:.34!important;filter:blur(4px)!important;animation-duration:28s!important}
+  .memory-orbit-scene:after{display:none!important}
+  .memory-orbit-bg{opacity:.24!important;animation:none!important;mask-image:radial-gradient(circle at center,#000 0 55%,transparent 82%)!important;background-size:54px 54px,54px 54px,100% 100%!important}
+  .memory-orbit-stage{transition:none!important;will-change:transform}
+  .memory-orbit-lane:before{opacity:.18!important}
+  .memory-orbit-card{-webkit-box-reflect:none!important;box-shadow:0 10px 24px rgba(0,0,0,.36),0 0 13px rgba(0,245,255,.13)!important;transition:box-shadow .18s ease,border-color .18s ease!important;will-change:transform}
+  .memory-orbit-card:before{opacity:.38!important}
+  .memory-orbit-card:after{box-shadow:inset 0 0 14px rgba(0,245,255,.1)!important}
+  .memory-orbit-card img{filter:saturate(1.04) contrast(1.02) brightness(.9)!important;transform:none!important;transition:none!important}
+  .memory-orbit-particles{animation-duration:30s!important}
+  .memory-orbit-particles:before{box-shadow:0 0 16px rgba(0,245,255,.12)!important}
+  .memory-orbit-particles:after{display:none!important}
+  .memory-orbit-particles i:nth-child(n+19){display:none!important}
+  .memory-orbit-particles i{box-shadow:0 0 8px rgba(255,255,255,.82),0 0 15px rgba(0,245,255,.64)!important;animation-duration:2.7s!important}
+  .memory-orbit-core{filter:drop-shadow(0 0 16px rgba(0,245,255,.32))!important}
+  .memory-orbit-core:before{inset:-14px!important;box-shadow:0 0 16px rgba(0,245,255,.18)!important}
+  .memory-orbit-core:after{display:none!important}
+  .memory-orbit-core img{box-shadow:0 0 0 1px rgba(255,255,255,.13),0 0 26px rgba(0,245,255,.24)!important;animation-duration:28s!important}
+  .memory-orbit-home,.memory-orbit-orb,.memory-orbit-controls button{backdrop-filter:none!important}
+  .memory-orbit-home{box-shadow:0 10px 24px rgba(0,0,0,.34),0 0 18px rgba(0,245,255,.14)!important}
+  .memory-orbit-orb{box-shadow:0 0 0 1px rgba(0,245,255,.16),0 0 24px rgba(0,245,255,.28),inset 10px 8px 18px rgba(255,255,255,.18),inset -16px -18px 24px rgba(0,0,0,.46)!important}
+  .memory-orbit-orb:after{display:none!important}
+}
+
+/* Mobile reflection trim v31 */
+@media (max-width:700px), (pointer:coarse){
+  .memory-orbit-card{-webkit-box-reflect:below 0 linear-gradient(transparent,transparent)!important}
+}
