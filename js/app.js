@@ -1525,6 +1525,7 @@
       var top = isMobileFullscreen() ? 58 : 12;
       var gap = mobile ? 6 : 8;
       var chipH = mobile ? 25 : 28;
+      var hudRightLimit = isMobileFullscreen() ? Math.max(210, gameW - 88) : gameW;
       var items = [
         ['◆', String(score), '#00eaff'],
         ['×', multiplier().toFixed(1), '#8a5cff'],
@@ -1546,7 +1547,7 @@
         items.forEach(function (item) {
           var label = item[0] + ' ' + item[1];
           var chipW = Math.max(mobile ? 44 : 54, ctx.measureText(label).width + 17);
-          if (x + chipW > gameW - 12) {
+          if (x + chipW > hudRightLimit - 12) {
             x = 12;
             y += chipH + gap;
           }

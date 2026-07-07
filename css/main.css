@@ -308,3 +308,43 @@ body:after{content:"";position:fixed;inset:0;z-index:-2;background:repeating-lin
 /* === In-canvas compact game HUD v36 === */
 .game-card .game-hud{display:none!important}
 @media (max-width:900px){.game-card.is-mobile-fullscreen::after{transition:opacity .14s ease}.game-card.is-mobile-fullscreen #gameCanvas{image-rendering:auto}}
+
+/* === Mobile fullscreen control glass v39 === */
+@media (max-width:900px), (pointer:coarse){
+  .game-card.is-mobile-fullscreen .mobile-float-pause,
+  .game-card.is-mobile-fullscreen .mobile-float-start,
+  .game-card.is-mobile-fullscreen .mobile-float-exit{
+    left:auto!important;
+    right:max(8px,env(safe-area-inset-right))!important;
+    transform:none!important;
+    min-width:58px!important;
+    min-height:32px!important;
+    height:32px!important;
+    padding:0 10px!important;
+    border-radius:999px!important;
+    border:1px solid rgba(185,245,255,.18)!important;
+    background:rgba(3,7,18,.36)!important;
+    color:rgba(255,255,255,.82)!important;
+    font-size:12px!important;
+    font-weight:800!important;
+    letter-spacing:.04em!important;
+    opacity:.56!important;
+    box-shadow:0 8px 24px rgba(0,0,0,.18),inset 0 1px rgba(255,255,255,.08)!important;
+    backdrop-filter:blur(12px)!important;
+    -webkit-backdrop-filter:blur(12px)!important;
+  }
+  .game-card.is-mobile-fullscreen .mobile-float-pause{top:max(8px,env(safe-area-inset-top))!important}
+  .game-card.is-mobile-fullscreen .mobile-float-start{top:calc(max(8px,env(safe-area-inset-top)) + 38px)!important}
+  .game-card.is-mobile-fullscreen .mobile-float-exit{top:calc(max(8px,env(safe-area-inset-top)) + 76px)!important}
+  .game-card.is-mobile-fullscreen .mobile-float-pause:active,
+  .game-card.is-mobile-fullscreen .mobile-float-start:active,
+  .game-card.is-mobile-fullscreen .mobile-float-exit:active{opacity:.88!important;background:rgba(0,234,255,.22)!important}
+  .game-card.is-mobile-fullscreen .game-mobile-ui{z-index:6!important}
+  .game-card.is-mobile-fullscreen .joystick-zone{opacity:.46!important;filter:saturate(.9)!important}
+  .game-card.is-mobile-fullscreen .joystick-base{background:rgba(3,7,18,.26)!important;border-color:rgba(185,245,255,.18)!important;box-shadow:0 10px 26px rgba(0,0,0,.16),inset 0 0 22px rgba(0,234,255,.08)!important}
+  .game-card.is-mobile-fullscreen .joystick-stick{opacity:.72!important;background:rgba(0,234,255,.36)!important;box-shadow:0 0 18px rgba(0,234,255,.22)!important}
+  .game-card.is-mobile-fullscreen .skill-pad{opacity:.58!important;filter:saturate(.92)!important}
+  .game-card.is-mobile-fullscreen .skill-button{background:rgba(3,7,18,.34)!important;border-color:rgba(185,245,255,.18)!important;color:rgba(255,255,255,.82)!important;box-shadow:0 10px 26px rgba(0,0,0,.18),inset 0 1px rgba(255,255,255,.08)!important;backdrop-filter:blur(10px)!important;-webkit-backdrop-filter:blur(10px)!important}
+  .game-card.is-mobile-fullscreen .skill-button.is-ready{opacity:1!important;background:rgba(0,234,255,.24)!important;color:#fff!important;box-shadow:0 0 24px rgba(0,234,255,.2),inset 0 1px rgba(255,255,255,.12)!important}
+  .game-card.is-mobile-fullscreen .skill-button:active{opacity:.92!important;transform:scale(.96)!important}
+}
