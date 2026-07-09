@@ -913,10 +913,10 @@
     var stateEl = $('#gameState');
     var levelButtons = $$('#difficultyPanel button');
     var levels = {
-      easy: { label: '简单', speed: 0.88, spawn: 0.98, lives: 5, scoreRate: 2.4, pulseGain: 9, waveTime: 14, color: '#00ffbf' },
-      normal: { label: '普通', speed: 1.0, spawn: 0.76, lives: 3, scoreRate: 3.3, pulseGain: 10.5, waveTime: 12.5, color: '#00eaff' },
-      hard: { label: '困难', speed: 1.26, spawn: 0.58, lives: 3, scoreRate: 4.5, pulseGain: 11.5, waveTime: 11.6, color: '#ffb14a' },
-      insane: { label: '地狱', speed: 1.54, spawn: 0.42, lives: 2, scoreRate: 6.2, pulseGain: 13, waveTime: 10.5, color: '#ff3f68' }
+      easy: { label: '简单', speed: 0.68, spawn: 1.38, lives: 5, scoreRate: 2.2, pulseGain: 10, waveTime: 15, color: '#00ffbf' },
+      normal: { label: '普通', speed: 0.82, spawn: 1.08, lives: 4, scoreRate: 3.1, pulseGain: 11, waveTime: 13.2, color: '#00eaff' },
+      hard: { label: '困难', speed: 1.08, spawn: 0.72, lives: 3, scoreRate: 4.3, pulseGain: 12, waveTime: 11.8, color: '#ffb14a' },
+      insane: { label: '地狱', speed: 1.34, spawn: 0.50, lives: 2, scoreRate: 6.1, pulseGain: 13.5, waveTime: 10.6, color: '#ff3f68' }
     };
     var currentLevel = 'normal';
     var best = 0;
@@ -945,11 +945,21 @@
     var keys = {};
     var pointer = { x: gameW / 2, y: gameH / 2, active: false };
     var joystick = { active: false, pointerId: null, dx: 0, dy: 0, mag: 0 };
-    var player = { x: gameW / 2, y: gameH / 2, r: 16, speed: 312, faceX: 1, faceY: 0 };
+    var player = { x: gameW / 2, y: gameH / 2, r: 16, speed: 340, faceX: 1, faceY: 0 };
     var hazards = [];
     var pickups = [];
     var particles = [];
     var rings = [];
+    var bullets = [];
+    var floatTexts = [];
+    var bladeTime = 0;
+    var gunTime = 0;
+    var invincible = 0;
+    var magnetTime = 0;
+    var freezeTime = 0;
+    var fireTimer = 0;
+    var powerFlash = 0;
+    var lastPowerName = '';
     var lastHudDomPaint = 0;
     var lastMobileFramePaint = 0;
     var lastSizeCheck = 0;
@@ -958,6 +968,15 @@
     function bestKey() { return 'lightCoreDodgeBest_' + currentLevel; }
     function readBest() { best = Number(safeStorageGet(bestKey(), '0') || 0); }
     function level() { return levels[currentLevel] || levels.normal; }
+    function maxLives() { return level().lives + 2; }
+    function activePowerText() {
+      if (invincible > 0) return '无敌' + Math.ceil(invincible) + 's';
+      if (bladeTime > 0) return '刀刃' + Math.ceil(bladeTime) + 's';
+      if (gunTime > 0) return '弹幕' + Math.ceil(gunTime) + 's';
+      if (freezeTime > 0) return '冻结' + Math.ceil(freezeTime) + 's';
+      if (magnetTime > 0) return '牵引' + Math.ceil(magnetTime) + 's';
+      return lastPowerName || '待命';
+    }
     function multiplier() { return 1 + Math.min(3, combo * 0.14); }
     function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
@@ -1048,6 +1067,8 @@
       pickups.forEach(function (p) { fitEntityToCanvas(p, oldW, oldH); });
       particles.forEach(function (p) { fitEntityToCanvas(p, oldW, oldH); });
       rings.forEach(function (r) { fitEntityToCanvas(r, oldW, oldH); });
+      bullets.forEach(function (b) { fitEntityToCanvas(b, oldW, oldH); });
+      floatTexts.forEach(function (t) { fitEntityToCanvas(t, oldW, oldH); });
       gameHudCache.key = '';
       return true;
     }
@@ -1128,10 +1149,69 @@
       }
     }
 
-    function addRing(x, y, color, radius, life) {
+    function colorAlpha(color, alpha) {
+      if (color && color.charAt(0) === '#' && (color.length === 7 || color.length === 4)) {
+        var hex = color.length === 4 ? '#' + color[1] + color[1] + color[2] + color[2] + color[3] + color[3] : color;
+        var n = parseInt(hex.slice(1), 16);
+        return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
+      }
+      return color || 'rgba(255,255,255,' + alpha + ')';
+    }
+
+    function addRing(x, y, color, radius, life, maxRadius, fill) {
       var maxRings = maxRingCount();
       if (rings.length >= maxRings) rings.splice(0, rings.length - maxRings + 1);
-      rings.push({ x: x, y: y, color: color, radius: radius || 30, max: radius || 220, life: life || 0.5, maxLife: life || 0.5 });
+      var start = radius || 28;
+      rings.push({ x: x, y: y, color: color, radius: start, max: maxRadius || Math.max(150, start * 5.2), life: life || 0.5, maxLife: life || 0.5, fill: !!fill });
+    }
+
+    function addFloatText(x, y, text, color) {
+      var maxTexts = isLiteGameRender() ? 8 : 18;
+      if (floatTexts.length >= maxTexts) floatTexts.splice(0, floatTexts.length - maxTexts + 1);
+      floatTexts.push({ x: x, y: y, vy: -34 - Math.random() * 18, text: text, color: color || '#fff', life: 0.85, max: 0.85 });
+    }
+
+    function nearestHazard() {
+      var bestHazard = null;
+      var bestDist = Infinity;
+      hazards.forEach(function (h) {
+        var d = Math.hypot(h.x - player.x, h.y - player.y);
+        if (d < bestDist) { bestDist = d; bestHazard = h; }
+      });
+      return bestHazard;
+    }
+
+    function fireBullet() {
+      var maxBullets = isLiteGameRender() ? 24 : 56;
+      if (bullets.length >= maxBullets) bullets.splice(0, bullets.length - maxBullets + 1);
+      var target = nearestHazard();
+      var dx = target ? target.x - player.x : player.faceX;
+      var dy = target ? target.y - player.y : player.faceY;
+      var len = Math.hypot(dx, dy) || 1;
+      dx /= len;
+      dy /= len;
+      var spread = (Math.random() - 0.5) * 0.18;
+      var cs = Math.cos(spread);
+      var sn = Math.sin(spread);
+      var vx = dx * cs - dy * sn;
+      var vy = dx * sn + dy * cs;
+      bullets.push({ x: player.x + vx * 22, y: player.y + vy * 22, vx: vx * 560, vy: vy * 560, r: 4.2, life: 1.15, color: '#00eaff', pierce: 1 });
+      if (!isLiteGameRender()) addParticles(player.x + vx * 20, player.y + vy * 20, '#00eaff', 3, 80);
+    }
+
+    function pickupMeta(type) {
+      var map = {
+        good: { color: '#00ffbf', label: '能量', mark: '+' },
+        shield: { color: '#8a5cff', label: '护盾', mark: '⬡' },
+        charge: { color: '#ffb14a', label: '充能', mark: '✦' },
+        heal: { color: '#ffffff', label: '生命', mark: '♥' },
+        blade: { color: '#ff3df2', label: '刀刃', mark: '刃' },
+        bullet: { color: '#00eaff', label: '弹幕', mark: '•' },
+        invincible: { color: '#ffe178', label: '无敌', mark: '∞' },
+        magnet: { color: '#57ffda', label: '牵引', mark: '⌁' },
+        freeze: { color: '#7ec8ff', label: '冻结', mark: '❄' }
+      };
+      return map[type] || map.good;
     }
 
     function updateHud(state) {
@@ -1145,7 +1225,7 @@
       if (scoreEl) scoreEl.textContent = score;
       if (comboEl) comboEl.textContent = 'x' + multiplier().toFixed(1);
       if (waveEl) waveEl.textContent = String(wave);
-      if (lifeEl) lifeEl.textContent = lives;
+      if (lifeEl) lifeEl.textContent = lives + '/' + maxLives();
       if (pulseEl) pulseEl.textContent = Math.floor(clamp(pulse, 0, 100)) + '%';
       if (dashEl) dashEl.textContent = dashCooldown <= 0 ? '就绪' : dashCooldown.toFixed(1) + 's';
       if (bestEl) bestEl.textContent = best;
@@ -1179,17 +1259,19 @@
     }
 
     function spawnPickup(forceType) {
-      if (isLiteGameRender() && pickups.length >= 5 && !forceType) return;
-      var types = ['good', 'good', 'good', 'shield', 'charge'];
-      if (lives < level().lives && Math.random() < 0.16) types.push('heal');
+      if (isLiteGameRender() && pickups.length >= 6 && !forceType) return;
+      var types = ['good', 'good', 'good', 'shield', 'charge', 'blade', 'bullet', 'magnet'];
+      if (lives < maxLives()) types.push('heal', 'heal');
+      if (wave >= 2) types.push('invincible', 'freeze');
+      if (wave >= 3) types.push('blade', 'bullet', 'freeze');
       var type = forceType || types[Math.floor(Math.random() * types.length)];
       pickups.push({
-        x: 50 + Math.random() * (gameW - 100),
-        y: 50 + Math.random() * (gameH - 100),
-        r: type === 'heal' ? 11 : type === 'shield' ? 10 : 9,
+        x: 50 + Math.random() * Math.max(80, gameW - 100),
+        y: 50 + Math.random() * Math.max(80, gameH - 100),
+        r: type === 'heal' ? 12 : type === 'blade' || type === 'bullet' || type === 'invincible' || type === 'magnet' || type === 'freeze' ? 11 : type === 'shield' ? 10 : 9,
         type: type,
         rot: Math.random() * Math.PI * 2,
-        ttl: 7.5 + Math.random() * 2.5
+        ttl: 8.2 + Math.random() * 2.8
       });
     }
 
@@ -1225,7 +1307,8 @@
     function destroyHazard(index, bonus) {
       var h = hazards[index];
       if (!h) return;
-      addParticles(h.x, h.y, h.elite ? '#ffb14a' : '#ff3f68', h.elite ? 16 : 10, h.elite ? 170 : 130);
+      addParticles(h.x, h.y, h.elite ? '#ffb14a' : '#ff3f68', h.elite ? 18 : 12, h.elite ? 190 : 150);
+      addRing(h.x, h.y, h.elite ? '#ffb14a' : '#ff3f68', h.r + 8, 0.24, h.r + 42);
       gainScore(bonus || (h.elite ? 12 : 7));
       hazards.splice(index, 1);
     }
@@ -1233,11 +1316,12 @@
     function usePulse() {
       if (!running || paused || pulse < 100) return;
       pulse = 0;
-      pulseFlash = 0.34;
-      pulseBurst = 0.42;
-      boostFlash = 0.42;
-      addRing(player.x, player.y, '#00eaff', 34, 0.42);
-      addParticles(player.x, player.y, '#00eaff', 24, 210);
+      pulseFlash = 0.52;
+      pulseBurst = 0.55;
+      boostFlash = 0.52;
+      addRing(player.x, player.y, '#00eaff', 20, 0.58, 232, true);
+      addRing(player.x, player.y, '#ffffff', 8, 0.28, 120);
+      addParticles(player.x, player.y, '#00eaff', 34, 250);
       var destroyed = 0;
       for (var i = hazards.length - 1; i >= 0; i--) {
         var h = hazards[i];
@@ -1300,12 +1384,12 @@
       over = false;
       runId += 1;
       last = performance.now();
-      spawnTimer = 1.15;
+      spawnTimer = 1.55;
       scoreFloat = 0;
       score = 0;
       lives = level().lives;
       shield = 0;
-      grace = 2.2;
+      grace = 2.8;
       wave = 1;
       waveClock = 0;
       combo = 0;
@@ -1317,10 +1401,20 @@
       damageFlash = 0;
       boostFlash = 0;
       hitFlashTimer = 0;
+      bladeTime = 0;
+      gunTime = 0;
+      invincible = 0;
+      magnetTime = 0;
+      freezeTime = 0;
+      fireTimer = 0;
+      powerFlash = 0;
+      lastPowerName = '';
       hazards = [];
       pickups = [];
       particles = [];
       rings = [];
+      bullets = [];
+      floatTexts = [];
       lastMobileFramePaint = 0;
       gameHudCache.key = '';
       player.x = gameW / 2;
@@ -1328,6 +1422,8 @@
       player.faceX = 1;
       player.faceY = 0;
       spawnPickup('good');
+      spawnPickup('shield');
+      spawnPickup('bullet');
       updateHud('运行中 · ' + level().label + ' · WAVE 1');
       requestAnimationFrame(function (now) { loop(now, runId); });
     }
@@ -1414,6 +1510,12 @@
       player.y = clamp(player.y, player.r, gameH - player.r);
       shield = Math.max(0, shield - dt);
       grace = Math.max(0, grace - dt);
+      bladeTime = Math.max(0, bladeTime - dt);
+      gunTime = Math.max(0, gunTime - dt);
+      invincible = Math.max(0, invincible - dt);
+      magnetTime = Math.max(0, magnetTime - dt);
+      freezeTime = Math.max(0, freezeTime - dt);
+      powerFlash = Math.max(0, powerFlash - dt);
       comboTimer = Math.max(0, comboTimer - dt);
       if (comboTimer <= 0 && combo > 0) combo = 0;
       dashCooldown = Math.max(0, dashCooldown - dt);
@@ -1424,6 +1526,15 @@
       hitFlashTimer = Math.max(0, hitFlashTimer - dt);
       if (hitFlashTimer <= 0) gameCard.classList.remove('is-hit');
       pulse = clamp(pulse + dt * cfg.pulseGain, 0, 100);
+      if (gunTime > 0) {
+        fireTimer -= dt;
+        var fireGap = isLiteGameRender() ? 0.22 : 0.15;
+        while (fireTimer <= 0) {
+          fireBullet();
+          fireTimer += fireGap;
+          if (isLiteGameRender()) break;
+        }
+      }
 
       waveClock += dt;
       if (waveClock >= cfg.waveTime) {
@@ -1431,7 +1542,9 @@
         waveClock = 0;
         pulse = clamp(pulse + 14, 0, 100);
         boostFlash = 0.32;
-        addRing(gameW * 0.5, gameH * 0.5, cfg.color, 60, 0.55);
+        addRing(gameW * 0.5, gameH * 0.5, cfg.color, 60, 0.55, 190, true);
+        spawnPickup(wave % 3 === 0 ? 'charge' : wave % 2 === 0 ? 'shield' : 'good');
+        if (wave >= 3) spawnPickup();
       }
 
       spawnTimer -= dt;
@@ -1444,10 +1557,11 @@
           var kind = roll < 0.54 ? 'seeker' : roll < 0.76 ? 'runner' : roll < 0.92 ? 'orbit' : 'brute';
           spawnHazard(kind);
         }
-        if (Math.random() < 0.28) spawnPickup();
-        spawnTimer = Math.max(currentLevel === 'insane' ? 0.16 : 0.22, cfg.spawn / (1 + (wave - 1) * 0.12) - score * 0.00065);
+        if (Math.random() < 0.36) spawnPickup();
+        spawnTimer = Math.max(currentLevel === 'insane' ? 0.22 : currentLevel === 'hard' ? 0.28 : 0.36, cfg.spawn / (1 + (wave - 1) * 0.10) - score * 0.00045);
       }
 
+      var hazardSlow = freezeTime > 0 ? 0.42 : 1;
       hazards.forEach(function (h, idx) {
         var tx = player.x - h.x;
         var ty = player.y - h.y;
@@ -1464,20 +1578,66 @@
         var maxSpeed = h.speed * (h.kind === 'runner' ? 1.05 : 1);
         h.vx = h.vx / vlen * maxSpeed;
         h.vy = h.vy / vlen * maxSpeed;
-        h.x += h.vx * dt;
-        h.y += h.vy * dt;
-        h.rot += dt * (h.kind === 'runner' ? 7.5 : h.kind === 'brute' ? 1.6 : 4.2);
+        h.x += h.vx * dt * hazardSlow;
+        h.y += h.vy * dt * hazardSlow;
+        h.rot += dt * (h.kind === 'runner' ? 7.5 : h.kind === 'brute' ? 1.6 : 4.2) * hazardSlow;
       });
       hazards = hazards.filter(function (h) { return h.x > -120 && h.x < gameW + 120 && h.y > -120 && h.y < gameH + 120; });
       var maxHazards = maxHazardCount();
       if (hazards.length > maxHazards) hazards.splice(0, hazards.length - maxHazards);
 
       pickups.forEach(function (p, idx) {
-        p.rot += dt * 2.2;
+        p.rot += dt * (p.type === 'blade' || p.type === 'bullet' ? 3.2 : 2.2);
         p.ttl -= dt;
         p.y += Math.sin((last + idx * 90) * 0.0024) * 0.15;
+        if (magnetTime > 0) {
+          var mxp = player.x - p.x;
+          var myp = player.y - p.y;
+          var md = Math.hypot(mxp, myp) || 1;
+          if (md < 260) {
+            var pull = (1 - md / 260) * 520;
+            p.x += mxp / md * pull * dt;
+            p.y += myp / md * pull * dt;
+          }
+        }
       });
       pickups = pickups.filter(function (p) { return p.ttl > 0; });
+
+      bullets.forEach(function (b) {
+        b.life -= dt;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+      });
+      for (var bi = bullets.length - 1; bi >= 0; bi--) {
+        var b = bullets[bi];
+        var removedBullet = false;
+        for (var hi = hazards.length - 1; hi >= 0; hi--) {
+          var hh = hazards[hi];
+          if (Math.hypot(hh.x - b.x, hh.y - b.y) < hh.r + b.r + 3) {
+            destroyHazard(hi, hh.elite ? 17 : 11);
+            combo += 1;
+            comboTimer = Math.max(comboTimer, 2.4);
+            pulse = clamp(pulse + 3, 0, 100);
+            b.pierce -= 1;
+            if (b.pierce < 0) { bullets.splice(bi, 1); removedBullet = true; }
+            break;
+          }
+        }
+        if (!removedBullet && (b.life <= 0 || b.x < -40 || b.x > gameW + 40 || b.y < -40 || b.y > gameH + 40)) bullets.splice(bi, 1);
+      }
+
+      if (bladeTime > 0) {
+        var bladeRadius = player.r + 48;
+        for (var bh = hazards.length - 1; bh >= 0; bh--) {
+          var bladeTarget = hazards[bh];
+          if (Math.hypot(bladeTarget.x - player.x, bladeTarget.y - player.y) < bladeRadius + bladeTarget.r) {
+            destroyHazard(bh, bladeTarget.elite ? 18 : 12);
+            combo += 1;
+            comboTimer = Math.max(comboTimer, 2.8);
+            pulse = clamp(pulse + 3.6, 0, 100);
+          }
+        }
+      }
 
       particles.forEach(function (p) {
         p.life -= dt;
@@ -1487,6 +1647,13 @@
         p.vy *= 0.98;
       });
       particles = particles.filter(function (p) { return p.life > 0; });
+
+      floatTexts.forEach(function (t) {
+        t.life -= dt;
+        t.y += t.vy * dt;
+        t.vy *= 0.98;
+      });
+      floatTexts = floatTexts.filter(function (t) { return t.life > 0; });
 
       rings.forEach(function (r) {
         r.life -= dt;
@@ -1504,7 +1671,7 @@
           gainScore(2);
         }
         if (dist < h.r + player.r) {
-          if (shield > 0 || grace > 0) {
+          if (shield > 0 || grace > 0 || invincible > 0) {
             destroyHazard(i, h.elite ? 16 : 10);
             comboTimer = Math.max(comboTimer, 2.2);
             pulse = clamp(pulse + 4, 0, 100);
@@ -1512,7 +1679,7 @@
             lives -= h.elite ? 2 : 1;
             combo = 0;
             comboTimer = 0;
-            grace = 1.1;
+            grace = 1.45;
             damageFlash = 1;
             triggerHitFlash(h.elite ? 1 : 0.72);
             pulse = Math.max(0, pulse - 18);
@@ -1528,27 +1695,58 @@
       for (var j = pickups.length - 1; j >= 0; j--) {
         var p = pickups[j];
         if (Math.hypot(p.x - player.x, p.y - player.y) < p.r + player.r + 3) {
-          boostFlash = 0.22;
+          var meta = pickupMeta(p.type);
+          boostFlash = 0.28;
+          powerFlash = 0.42;
+          lastPowerName = meta.label;
+          addRing(p.x, p.y, meta.color, 12, 0.34, 64, true);
+          addFloatText(p.x, p.y - 10, meta.label, meta.color);
           if (p.type === 'good') {
             combo += 1;
             comboTimer = 3.4;
-            pulse = clamp(pulse + 9, 0, 100);
+            pulse = clamp(pulse + 10, 0, 100);
             gainScore(12);
-            addParticles(p.x, p.y, '#00ffbf', 12, 140);
+            addParticles(p.x, p.y, '#00ffbf', 14, 150);
           } else if (p.type === 'shield') {
-            shield = 5;
-            pulse = clamp(pulse + 6, 0, 100);
-            gainScore(9);
-            addParticles(p.x, p.y, '#8a5cff', 14, 150);
-          } else if (p.type === 'charge') {
-            pulse = clamp(pulse + 30, 0, 100);
-            comboTimer = Math.max(comboTimer, 2.2);
+            shield = Math.max(shield, 5.5);
+            pulse = clamp(pulse + 7, 0, 100);
             gainScore(10);
-            addParticles(p.x, p.y, '#ffb14a', 14, 160);
+            addParticles(p.x, p.y, '#8a5cff', 18, 170);
+          } else if (p.type === 'charge') {
+            pulse = clamp(pulse + 34, 0, 100);
+            comboTimer = Math.max(comboTimer, 2.4);
+            gainScore(12);
+            addParticles(p.x, p.y, '#ffb14a', 18, 180);
           } else if (p.type === 'heal') {
-            lives = Math.min(level().lives, lives + 1);
+            lives = Math.min(maxLives(), lives + 1);
+            grace = Math.max(grace, 0.9);
+            gainScore(16);
+            addParticles(p.x, p.y, '#ffffff', 18, 160);
+          } else if (p.type === 'blade') {
+            bladeTime = Math.max(bladeTime, 7.5);
+            comboTimer = Math.max(comboTimer, 2.6);
             gainScore(14);
-            addParticles(p.x, p.y, '#ffffff', 14, 150);
+            addParticles(p.x, p.y, '#ff3df2', 22, 210);
+          } else if (p.type === 'bullet') {
+            gunTime = Math.max(gunTime, 8.0);
+            fireTimer = Math.min(fireTimer, 0.04);
+            gainScore(14);
+            addParticles(p.x, p.y, '#00eaff', 22, 210);
+          } else if (p.type === 'invincible') {
+            invincible = Math.max(invincible, 3.6);
+            grace = Math.max(grace, 3.6);
+            gainScore(18);
+            addParticles(p.x, p.y, '#ffe178', 24, 220);
+          } else if (p.type === 'magnet') {
+            magnetTime = Math.max(magnetTime, 8.0);
+            gainScore(10);
+            addParticles(p.x, p.y, '#57ffda', 18, 180);
+          } else if (p.type === 'freeze') {
+            freezeTime = Math.max(freezeTime, 4.6);
+            pulse = clamp(pulse + 8, 0, 100);
+            gainScore(16);
+            addParticles(p.x, p.y, '#7ec8ff', 22, 190);
+            addRing(player.x, player.y, '#7ec8ff', 18, 0.48, 190, true);
           }
           pickups.splice(j, 1);
           updateHud();
@@ -1565,7 +1763,8 @@
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rot);
-      var color = p.type === 'good' ? '#00ffbf' : p.type === 'shield' ? '#8a5cff' : p.type === 'charge' ? '#ffb14a' : '#ffffff';
+      var meta = pickupMeta(p.type);
+      var color = meta.color;
       ctx.shadowColor = color;
       ctx.shadowBlur = isLiteGameRender() ? 4 : 18;
       ctx.strokeStyle = 'rgba(255,255,255,.82)';
@@ -1598,6 +1797,38 @@
         }
         ctx.closePath();
         ctx.fill();
+      } else if (p.type === 'blade') {
+        ctx.beginPath();
+        ctx.moveTo(-p.r * 1.1, p.r * 0.2);
+        ctx.quadraticCurveTo(0, -p.r * 1.55, p.r * 1.15, -p.r * 0.1);
+        ctx.quadraticCurveTo(0, -p.r * 0.25, -p.r * 1.1, p.r * 0.2);
+        ctx.closePath();
+        ctx.fill();
+      } else if (p.type === 'bullet') {
+        ctx.beginPath();
+        ctx.moveTo(p.r * 1.25, 0);
+        ctx.lineTo(-p.r * 0.72, -p.r * 0.72);
+        ctx.lineTo(-p.r * 0.35, 0);
+        ctx.lineTo(-p.r * 0.72, p.r * 0.72);
+        ctx.closePath();
+        ctx.fill();
+      } else if (p.type === 'invincible') {
+        ctx.beginPath();
+        ctx.arc(-p.r * 0.42, 0, p.r * 0.55, 0, Math.PI * 2);
+        ctx.arc(p.r * 0.42, 0, p.r * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.type === 'magnet') {
+        ctx.beginPath();
+        ctx.arc(0, 0, p.r * 0.9, Math.PI * 0.18, Math.PI * 1.82);
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      } else if (p.type === 'freeze') {
+        ctx.beginPath();
+        for (var fi = 0; fi < 6; fi++) {
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(fi * Math.PI / 3) * p.r, Math.sin(fi * Math.PI / 3) * p.r);
+        }
+        ctx.stroke();
       } else {
         ctx.beginPath();
         ctx.moveTo(0, -p.r);
@@ -1608,6 +1839,12 @@
         ctx.fill();
       }
       ctx.stroke();
+      ctx.rotate(-p.rot);
+      ctx.fillStyle = 'rgba(3,8,20,.86)';
+      ctx.font = '900 ' + Math.max(9, p.r * 0.88) + 'px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      if (!isLiteGameRender() || p.type === 'blade' || p.type === 'bullet' || p.type === 'invincible') ctx.fillText(meta.mark, 0, 0.5);
       ctx.restore();
     }
 
@@ -1615,7 +1852,7 @@
       ctx.save();
       ctx.translate(h.x, h.y);
       ctx.rotate(h.rot);
-      var color = h.elite ? '#ffb14a' : h.kind === 'runner' ? '#ff7c4d' : '#ff3f68';
+      var color = freezeTime > 0 ? '#7ec8ff' : h.elite ? '#ffb14a' : h.kind === 'runner' ? '#ff7c4d' : '#ff3f68';
       ctx.shadowColor = color;
       ctx.shadowBlur = isLiteGameRender() ? (h.elite ? 8 : 4) : (h.elite ? 28 : 18);
       ctx.fillStyle = color;
@@ -1656,9 +1893,10 @@
         ['◆', String(score), '#00eaff'],
         ['×', multiplier().toFixed(1), '#8a5cff'],
         ['≋', String(wave), '#ffb14a'],
-        ['♥', String(lives), lives <= 1 ? '#ff3f68' : '#ffffff'],
+        ['♥', lives + '/' + maxLives(), lives <= 1 ? '#ff3f68' : '#ffffff'],
         ['◎', Math.floor(clamp(pulse, 0, 100)) + '%', pulse >= 100 ? '#00ffbf' : '#00eaff'],
         ['↯', dashCooldown <= 0 ? 'OK' : dashCooldown.toFixed(1), dashCooldown <= 0 ? '#8a5cff' : '#b8c5df'],
+        ['⚔', activePowerText(), bladeTime > 0 ? '#ff3df2' : gunTime > 0 ? '#00eaff' : invincible > 0 ? '#ffe178' : freezeTime > 0 ? '#7ec8ff' : magnetTime > 0 ? '#57ffda' : '#b8c5df'],
         ['★', String(best), '#ffe178']
       ];
       var key = Math.round(gameW) + '|' + top + '|' + (mobile ? 1 : 0) + '|' + items.map(function (item) { return item.join(':'); }).join('|');
@@ -1744,16 +1982,46 @@
 
       rings.forEach(function (r) {
         ctx.save();
-        ctx.globalAlpha = Math.max(0, r.life / r.maxLife) * 0.65;
+        var ringAlpha = Math.max(0, r.life / r.maxLife);
+        ctx.globalAlpha = ringAlpha * 0.72;
         ctx.strokeStyle = r.color;
-        ctx.lineWidth = 4;
+        ctx.shadowColor = r.color;
+        ctx.shadowBlur = lite ? 5 : 22;
+        ctx.lineWidth = r.fill ? 3 : 4;
         ctx.beginPath();
         ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+        if (r.fill) {
+          var rg = ctx.createRadialGradient(r.x, r.y, Math.max(1, r.radius * 0.12), r.x, r.y, r.radius);
+          rg.addColorStop(0, 'rgba(255,255,255,0)');
+          rg.addColorStop(0.62, colorAlpha(r.color, .08));
+          rg.addColorStop(1, colorAlpha(r.color, .18));
+          ctx.fillStyle = rg;
+          ctx.fill();
+        }
         ctx.stroke();
         ctx.restore();
       });
 
       pickups.forEach(drawPickup);
+
+      bullets.forEach(function (b) {
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(Math.atan2(b.vy, b.vx));
+        ctx.globalAlpha = Math.max(0, Math.min(1, b.life));
+        ctx.shadowColor = b.color;
+        ctx.shadowBlur = lite ? 5 : 18;
+        ctx.fillStyle = b.color;
+        ctx.beginPath();
+        ctx.moveTo(9, 0);
+        ctx.lineTo(-6, -3.5);
+        ctx.lineTo(-3, 0);
+        ctx.lineTo(-6, 3.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      });
+
       hazards.forEach(drawHazard);
 
       particles.forEach(function (p) {
@@ -1766,9 +2034,22 @@
         ctx.restore();
       });
 
+      floatTexts.forEach(function (t) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, t.life / t.max);
+        ctx.fillStyle = t.color;
+        ctx.shadowColor = t.color;
+        ctx.shadowBlur = lite ? 4 : 14;
+        ctx.font = '900 ' + (lite ? 13 : 16) + 'px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t.text, t.x, t.y);
+        ctx.restore();
+      });
+
       ctx.save();
       ctx.translate(player.x, player.y);
-      var pulseScale = 1 + Math.sin((now || 0) * 0.012) * 0.08 + boostFlash * 0.1;
+      var pulseScale = 1 + Math.sin((now || 0) * 0.012) * 0.08 + boostFlash * 0.1 + powerFlash * 0.12;
       var pulseReady = running && pulse >= 100;
       var dashReady = running && dashCooldown <= 0;
       if (pulseReady || dashReady) {
@@ -1795,7 +2076,47 @@
         ctx.stroke();
         ctx.restore();
       }
-      ctx.shadowColor = shield > 0 ? '#8a5cff' : pulseReady ? '#00eaff' : cfg.color;
+      if (bladeTime > 0) {
+        ctx.save();
+        var spin = (now || 0) * 0.018;
+        var blades = lite ? 2 : 3;
+        ctx.globalAlpha = 0.78;
+        ctx.shadowColor = '#ff3df2';
+        ctx.shadowBlur = lite ? 10 : 30;
+        for (var blade = 0; blade < blades; blade++) {
+          ctx.save();
+          ctx.rotate(spin + blade * Math.PI * 2 / blades);
+          ctx.strokeStyle = blade % 2 ? '#00eaff' : '#ff3df2';
+          ctx.lineWidth = lite ? 4 : 5;
+          ctx.beginPath();
+          ctx.arc(0, 0, player.r + 46, -0.34, 0.48);
+          ctx.stroke();
+          ctx.fillStyle = blade % 2 ? '#00eaff' : '#ff3df2';
+          ctx.beginPath();
+          ctx.moveTo(player.r + 54, -3);
+          ctx.lineTo(player.r + 70, 0);
+          ctx.lineTo(player.r + 54, 6);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+      if (gunTime > 0 || invincible > 0 || magnetTime > 0 || freezeTime > 0) {
+        ctx.save();
+        ctx.globalAlpha = invincible > 0 ? 0.62 : 0.46;
+        var auraColor = invincible > 0 ? '#ffe178' : freezeTime > 0 ? '#7ec8ff' : magnetTime > 0 ? '#57ffda' : '#00eaff';
+        ctx.strokeStyle = auraColor;
+        ctx.shadowColor = auraColor;
+        ctx.shadowBlur = lite ? 8 : 24;
+        ctx.setLineDash([6, 8]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, player.r + (invincible > 0 ? 36 : magnetTime > 0 ? 42 : 32), (now || 0) * 0.004, Math.PI * 2 + (now || 0) * 0.004);
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.shadowColor = invincible > 0 ? '#ffe178' : freezeTime > 0 ? '#7ec8ff' : magnetTime > 0 ? '#57ffda' : shield > 0 ? '#8a5cff' : pulseReady ? '#00eaff' : cfg.color;
       ctx.shadowBlur = lite ? (shield > 0 || pulseReady ? 14 : 8) : (shield > 0 ? 42 : pulseReady ? 40 : 24);
       var grad = ctx.createRadialGradient(-6, -6, 2, 0, 0, player.r * 1.5);
       grad.addColorStop(0, '#ffffff');
@@ -1805,7 +2126,7 @@
       ctx.beginPath();
       ctx.arc(0, 0, player.r * pulseScale, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = shield > 0 ? 'rgba(138,92,255,.98)' : grace > 0 ? 'rgba(255,255,255,.98)' : 'rgba(255,255,255,.74)';
+      ctx.strokeStyle = invincible > 0 ? 'rgba(255,225,120,.98)' : shield > 0 ? 'rgba(138,92,255,.98)' : grace > 0 ? 'rgba(255,255,255,.98)' : 'rgba(255,255,255,.74)';
       ctx.lineWidth = shield > 0 || grace > 0 ? 4 : 2;
       ctx.beginPath();
       ctx.arc(0, 0, player.r + (shield > 0 ? 12 : 7), 0, Math.PI * 2);
