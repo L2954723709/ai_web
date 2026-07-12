@@ -10,7 +10,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='30' fill='%23040610'/%3E%3Cpath d='M24 72c18-42 62-46 72-14 9 28-36 49-56 24-12-16 9-36 31-22' fill='none' stroke='%2300eaff' stroke-width='9' stroke-linecap='round'/%3E%3Ccircle cx='82' cy='34' r='8' fill='%23ff4df8'/%3E%3C/svg%3E">
   <link rel="preload" href="assets/videos/neural-loop-poster.webp" as="image" type="image/webp" fetchpriority="high">
   <link rel="preload" href="assets/images/gallery/thumbs/gallery-01-thumb.webp" as="image" type="image/webp">
-  <link rel="stylesheet" href="css/main.css?v=20260709-57">
+  <link rel="stylesheet" href="css/main.css?v=20260712-04">
 </head>
 <body>
   <canvas id="neuralBg" aria-hidden="true"></canvas>
@@ -175,6 +175,7 @@
             <div class="game-status"><strong>光核闪避</strong><span id="gameState">待机 · 普通难度</span></div>
             <div class="game-actions">
               <button class="btn primary" type="button" id="gameStart">开始游戏</button>
+              <button class="btn primary game-time-action" type="button" id="gameStudyTime" hidden>答题换时</button>
               <button class="btn ghost" type="button" id="gamePause">暂停</button>
               <button class="btn ghost" type="button" id="gamePulse">释放脉冲</button>
               <button class="btn ghost" type="button" id="gameDash">量子冲刺</button>
@@ -182,6 +183,16 @@
             </div>
           </div>
           <canvas id="gameCanvas" width="760" height="460" aria-label="光核闪避小游戏画布"></canvas>
+          <div class="game-over-choice" id="gameOverChoice" hidden>
+            <div class="game-over-choice-panel">
+              <span>本局结束</span>
+              <strong id="gameOverSummary">普通 · WAVE 1 · 0 分</strong>
+              <div class="game-over-choice-actions">
+                <button class="game-over-revive" type="button" id="gameRevive">答题复活</button>
+                <button class="game-over-next" type="button" id="gameNextRound">下一局</button>
+              </div>
+            </div>
+          </div>
           <button class="mobile-float-pause" type="button" id="mobilePauseBtn" aria-label="暂停游戏">暂停</button>
           <button class="mobile-float-start" type="button" id="mobileStartBtn" aria-label="重新开始游戏" hidden>重开</button>
           <button class="mobile-float-exit" type="button" id="mobileExitBtn" aria-label="退出全屏">退出</button>
@@ -207,17 +218,178 @@
         </div>
       </div>
       <div class="game-help-modal" id="gameHelpModal" aria-hidden="true">
-        <div class="game-help-panel" role="dialog" aria-modal="true" aria-labelledby="gameHelpTitle">
+        <div class="game-help-panel game-guide-panel" role="dialog" aria-modal="true" aria-labelledby="gameHelpTitle">
           <button class="game-help-close" type="button" id="gameHelpClose" aria-label="关闭说明">×</button>
-          <span class="kicker">CONTROL GUIDE</span>
-          <h3 id="gameHelpTitle">按键说明</h3>
-          <div class="game-help-list">
-            <span><b>WASD / 方向键</b><em>移动光核</em></span>
-            <span><b>鼠标悬停</b><em>跟随操控</em></span>
-            <span><b>空格</b><em>量子冲刺</em></span>
-            <span><b>Q</b><em>脉冲清场</em></span>
-            <span><b>P / ESC</b><em>暂停游戏</em></span>
+          <span class="kicker">GAME MANUAL</span>
+          <h3 id="gameHelpTitle">光核闪避图鉴</h3>
+          <p class="game-guide-lead">操控光核活到更高波次，拾取道具强化输出，击破每波 Boss 后进入短暂休整。数值会随波次、难度和存活时间提升。</p>
+
+          <div class="game-guide-scroll">
+            <section class="guide-section">
+              <div class="guide-title"><span>01</span><b>基础玩法</b></div>
+              <div class="guide-cards compact">
+                <article><i class="pickup-token pickup-misc"><span>🎮</span></i><b>移动</b><em>WASD / 方向键移动；电脑端鼠标悬停可跟随操控；手机全屏左手摇杆。</em></article>
+                <article><i class="pickup-token pickup-misc"><span>⚡</span></i><b>冲刺</b><em>空格 / 量子冲刺按钮。冷却 2.6 秒，命中范围内敌人造成小爆发，短暂无敌。</em></article>
+                <article><i class="pickup-token pickup-misc"><span>◎</span></i><b>脉冲</b><em>Q / 释放脉冲按钮。能量 100% 后可用，范围约 220，普通怪高伤，Boss 受到 190 + 波次 × 18。</em></article>
+                <article><i class="pickup-token pickup-misc"><span>⏸</span></i><b>暂停</b><em>P / ESC 暂停。击破 Boss 后休整约 3.9 秒，下一波刷新并补充强力道具。</em></article>
+              </div>
+            </section>
+
+            <section class="guide-section">
+              <div class="guide-title"><span>02</span><b>答题复活与防沉迷</b></div>
+              <div class="guide-cards compact">
+                <article><i class="pickup-token pickup-misc"><span>⌁</span></i><b>复活挑战</b><em>死亡后可进入随机 Python 选择题挑战，积分达到 5 分后原波次复活，并获得 3 秒保护。</em></article>
+                <article><i class="pickup-token pickup-misc"><span>20</span></i><b>计分规则</b><em>每题 20 秒；答对 +1，答错或超时 -1，最低保持 0；答错或超时后查看解析，点击“下一题”继续。</em></article>
+                <article><i class="pickup-token pickup-misc"><span>⏱</span></i><b>学习换时</b><em>活跃游玩达到 60 分钟后暂停游戏，通过同样的 5 分挑战可增加 15 分钟。</em></article>
+                <article><i class="pickup-token pickup-misc"><span>↻</span></i><b>进度保存</b><em>答题积分、当前题目、倒计时、死亡状态和游玩时长保存在本机，刷新不能清零。</em></article>
+              </div>
+            </section>
+
+            <section class="guide-section">
+              <div class="guide-title"><span>03</span><b>成长与刷新</b></div>
+              <div class="guide-note-grid">
+                <p><strong>独立进化</strong>：每种道具首次拾取为 R1，再次拾取进化到 R2、R3；满阶后继续拾取会触发满阶共振，补充脉冲和分数。</p>
+                <p><strong>品质</strong>：标准为基础效果；强化额外提高约 20% 强度与 15% 时长；超频再提高约 20%。强化第 3 波后稳定开放，超频第 7 波后开放。</p>
+                <p><strong>公平叠加</strong>：持续效果重复拾取只追加约 58% 新时长，并受独立上限约束，无法无限堆叠；R2 / R3 主要强化形态、数量和联动。</p>
+                <p><strong>后期补偿</strong>：稀有品质有保底累积；波次越高，神器和高品质道具越常见，抵消敌人血量、攻击与数量成长。</p>
+                <p><strong>小兵成长</strong>：血量约为基础值 × <code>1.08 + 0.21 × (波次 - 1) + 存活时间加成</code>，并根据已获得的输出道具同步强化；第 3 波起可能出现带护甲的冠军单位。</p>
+                <p><strong>Boss 成长</strong>：基础 HP 叠加波次、时间、难度和玩家火力倍率；普通难度约 0.96 倍，地狱约 1.36 倍。Boss 拥有韧性护盾、抗爆发上限，低血量时技能频率提升。</p>
+              </div>
+              <div class="artifact-line">
+                <span><b>神器与品质开放</b></span>
+                <em>第 3 波起：强化品质进入主要掉落池</em>
+                <em>第 5 波起：新星 / 黑洞 / 陨星 / 狂热</em>
+                <em>第 7 波起：超频品质、神盾 / 时停 / 开奖</em>
+                <em>第 9 波起：超载 / 奇迹，神器概率随波次提升</em>
+              </div>
+              <div class="artifact-line synergy-line">
+                <span><b>七组共鸣</b></span>
+                <em>刀刃 + 疾行：风切推进</em>
+                <em>弹幕 + 分裂弹：镜像弹仓</em>
+                <em>护盾 + 反伤甲：反应装甲</em>
+                <em>冻结 + 光矛：极寒光矛</em>
+                <em>牵引 + 黑洞：奇点引擎</em>
+                <em>生命 + 虹吸：再生血契</em>
+                <em>充能 + 涌能：零延迟回路</em>
+              </div>
+            </section>
+
+            <section class="guide-section">
+              <div class="guide-title"><span>04</span><b>小兵数据</b></div>
+              <div class="guide-table mini enemy-table">
+                <span>样子</span><span>类型</span><span>基础血量</span><span>基础伤害</span><span>特点</span>
+                <i class="guide-token enemy-token runner"></i><b>Runner 跑者</b><em>26</em><em>1</em><em>速度快，贴脸压力大。</em>
+                <i class="guide-token enemy-token seeker"></i><b>Seeker 追猎</b><em>38</em><em>1</em><em>稳定追踪玩家。</em>
+                <i class="guide-token enemy-token orbit"></i><b>Orbit 轨道体</b><em>48</em><em>1</em><em>弧线绕行，容易封走位。</em>
+                <i class="guide-token enemy-token brute"></i><b>Brute 重装</b><em>92</em><em>2</em><em>血厚，速度慢，撞击更疼。</em>
+                <i class="guide-token enemy-token sniper"></i><b>Sniper 狙击体</b><em>58</em><em>2</em><em>周期发射远程子弹。</em>
+              </div>
+            </section>
+
+            <section class="guide-section">
+              <div class="guide-title"><span>05</span><b>道具效果</b></div>
+              <div class="guide-grid pickups">
+                <article><i class="pickup-token pickup-good"><span>+</span></i><b>能量</b><em>连击 +2～4、脉冲约 +11；释放 7 / 9 / 11 发能量弹，R3 追加短时链电。</em></article>
+                <article><i class="pickup-token pickup-shield"><span>⬡</span></i><b>护盾</b><em>恢复约 62 护盾并发动盾震；R1～R3 扩大范围和伤害，R3 临时激活反伤甲。</em></article>
+                <article><i class="pickup-token pickup-charge"><span>✦</span></i><b>充能</b><em>脉冲约 +36并发射穿透电弹；溢出 100% 或 R3 时减少 1.4 秒冲刺冷却并启动链电。</em></article>
+                <article><i class="pickup-token pickup-heal"><span>♥</span></i><b>生命</b><em>恢复 1 生命，超频恢复 2；同时补盾并获得约 1.3～1.7 秒保护。满血拾取改为额外护盾与维修。</em></article>
+                <article><i class="pickup-token pickup-speed"><span>»</span></i><b>疾行</b><em>移速提升约 7.2 秒并刷新冲刺；留下 3.8 秒风切轨迹，R 越高范围、伤害和频率越强。</em></article>
+                <article><i class="pickup-token pickup-blade"><span>刃</span></i><b>刀刃</b><em>环刃持续约 7.4 秒，R1 / R2 / R3 基础伤害 30 / 37 / 44，半径与刀刃数量同步成长，并附带链电。</em></article>
+                <article><i class="pickup-token pickup-bullet"><span>•</span></i><b>弹幕</b><em>强化自动攻击约 8 秒；R1 单发 24，R2 双发各约 20，R3 三发各约 17并额外穿透，拾取时释放环射。</em></article>
+                <article><i class="pickup-token pickup-invincible"><span>∞</span></i><b>无敌</b><em>持续约 3.2 秒，接触普通怪直接击破；接触 Boss 每 0.18 秒造成 38 / 48 / 58，并生成近身奇点。</em></article>
+                <article><i class="pickup-token pickup-magnet"><span>⌁</span></i><b>牵引</b><em>持续约 8.2 秒，吸取半径约 295 / 330 / 365；附带牵引黑洞，R3 可轻微拉动远处普通敌人。</em></article>
+                <article><i class="pickup-token pickup-freeze"><span>❄</span></i><b>冻结</b><em>减速约 4.6 秒：敌人速度降至 48% / 39% / 31%，敌弹降至 62% / 54% / 46%；并布置寒霜震爆点。</em></article>
+                <article><i class="pickup-token pickup-nova"><span>✹</span></i><b>新星</b><em>击破普通怪，Boss 受到约 360 + 波次 × 26后再乘品质成长；脉冲充满并启动链电，R3 展开短时圣域。</em></article>
+                <article><i class="pickup-token pickup-overdrive"><span>Ω</span></i><b>超载</b><em>约 8.4 秒同时强化移速、刀刃、弹幕和射速，并召唤无人机与链电；所有持续时间仍受上限限制。</em></article>
+                <article><i class="pickup-token pickup-guardian"><span>◆</span></i><b>神盾</b><em>护盾回满、清空敌弹和危险区，获得约 2.25～2.75 秒保护；R2 起可补 1 生命，并展开移动圣域。</em></article>
+                <article><i class="pickup-token pickup-timewarp"><span>⌬</span></i><b>时停</b><em>完全冻结敌人、Boss 与敌弹约 4 秒，补充约 42 脉冲并短暂无敌；R1～R3 释放 2～3 束时序光矛。</em></article>
+                <article><i class="pickup-token pickup-berserk"><span>狂</span></i><b>狂热</b><em>约 5 秒同步开启超载、疾行、弹幕与刀刃，并释放 15 / 18 / 21 发高穿透狂热弹。</em></article>
+                <article><i class="pickup-token pickup-storm"><span>暴</span></i><b>弹幕风暴</b><em>先释放 16 / 20 / 24 发环射，再持续约 4～5.5 秒发射交替旋向的螺旋弹幕。</em></article>
+                <article><i class="pickup-token pickup-laser"><span>矛</span></i><b>光矛</b><em>释放 2 / 3 / 4 束交叉光矛，单次基础伤害约 82 / 92 / 102 + 波次 × 5；拥有冻结时追加极寒延时。</em></article>
+                <article><i class="pickup-token pickup-mine"><span>雷</span></i><b>震爆雷</b><em>环绕布置 4 / 5 / 6 枚延迟雷，范围约 91 / 100 / 109；普通怪高额打击，Boss 伤害随波次与品质成长。</em></article>
+                <article><i class="pickup-token pickup-blackhole"><span>洞</span></i><b>黑洞</b><em>生成约 4.2～5.4 秒奇点，持续牵引并周期伤害，同时获得牵引与短冻结；R2 起追加链电。</em></article>
+                <article><i class="pickup-token pickup-blink"><span>闪</span></i><b>闪现</b><em>瞬移到风险最低的位置、刷新冲刺并获得约 1.6～2.1 秒保护；原地爆破，R2 起落点再爆破。</em></article>
+                <article><i class="pickup-token pickup-repair"><span>修</span></i><b>修复</b><em>立即恢复约 82 护盾，生命低于等于 2 时补 1 生命；维修蜂群持续 6～8 秒，周期补盾并射击。</em></article>
+                <article><i class="pickup-token pickup-cleanser"><span>净</span></i><b>净化</b><em>清除敌弹与危险区，将最多 10 / 14 / 18 发非激光弹反制为友军弹，获得短暂保护并补充脉冲。</em></article>
+                <article><i class="pickup-token pickup-phase"><span>相</span></i><b>相位</b><em>约 2.5 秒无敌与 3.8 秒疾行，生成 1 / 2 / 3 道向后切割的相位残像光矛。</em></article>
+                <article><i class="pickup-token pickup-drone"><span>机</span></i><b>无人机</b><em>开启强化弹幕并召唤 1 / 2 / 3 组自动锁敌编队，持续约 9.7～12.1 秒；手机最多 2 组。</em></article>
+                <article><i class="pickup-token pickup-meteor"><span>陨</span></i><b>陨星</b><em>先全场打击普通怪约 210、Boss 约 390 + 波次 × 18，再锁定目标降下 3 / 4 / 5 枚追踪陨星。</em></article>
+                <article><i class="pickup-token pickup-gold"><span>金</span></i><b>金币雨</b><em>大量加分、连击 +3～5、脉冲约 +16并释放金色弹幕；R 越高越可能额外掉落充能，R3 后期可开出开奖。</em></article>
+                <article><i class="pickup-token pickup-surge"><span>涌</span></i><b>涌能</b><em>脉冲立即充满、冲刺刷新，启动约 3.5～4.9 秒链式电涌；持有充能时追加穿透环射。</em></article>
+                <article><i class="pickup-token pickup-thornmail"><span>甲</span></i><b>反伤甲</b><em>恢复约 58 护盾、开启刀刃与 7.8～9.8 秒反应装甲；受盾伤时反击范围约 160～190，另布置 3～5 枚棘雷。</em></article>
+                <article><i class="pickup-token pickup-vampire"><span>吸</span></i><b>虹吸</b><em>范围打击并恢复 1 生命或护盾，血契持续约 8.9～11.7 秒；每击破 5 / 4 / 3 个小兵回血盾，每 3 次循环补 1 生命。</em></article>
+                <article><i class="pickup-token pickup-splitter"><span>裂</span></i><b>分裂弹</b><em>强化弹幕约 6.4 秒并开启 8.3～10.9 秒分裂；命中后分裂 2 / 3 / 4 发且不可递归，手机最多 3 发。</em></article>
+                <article><i class="pickup-token pickup-echo"><span>回</span></i><b>回声</b><em>缓存下一件非回声道具，以 55% 强度复制，并短时开启刀刃、弹幕、牵引和链电；R3 强化品质可缓存 2 次。</em></article>
+                <article><i class="pickup-token pickup-sanctuary"><span>圣</span></i><b>圣域</b><em>护盾回满、清除近身弹幕与全部危险区，展开约 5～7 秒移动圣域，周期消除非激光敌弹并伤害敌人。</em></article>
+                <article><i class="pickup-token pickup-jackpot"><span>奖</span></i><b>开奖</b><em>随机开出 3 / 4 / 5 件奖励，候选含风暴、修复、无人机、金币及后期神器，同时补脉冲并释放庆典弹幕。</em></article>
+                <article><i class="pickup-token pickup-miracle"><span>奇</span></i><b>奇迹</b><em>从时序、神盾、军械、蜂群、奇点、重生中随机启动 3 / 4 / 5 个模块，并释放高穿透奇迹弹幕。</em></article>
+              </div>
+            </section>
+
+            <section class="guide-section">
+              <div class="guide-title"><span>06</span><b>Boss 图鉴</b></div>
+              <div class="guide-table boss boss-table">
+                <span>样子</span><span>Boss</span><span>基础 HP</span><span>基础伤害</span><span>核心技能</span>
+                <i class="guide-token boss-token serpent" data-glyph="蛇"></i><b>量子蛇</b><em>430</em><em>2</em><em>扇形连射。</em>
+                <i class="guide-token boss-token prism" data-glyph="◇"></i><b>棱镜眼</b><em>520</em><em>2</em><em>环形光球 + 激光。</em>
+                <i class="guide-token boss-token hydra" data-glyph="九"></i><b>九头核</b><em>610</em><em>3</em><em>召唤小怪 + 三向光球。</em>
+                <i class="guide-token boss-token phantom" data-glyph="影"></i><b>幻影轮</b><em>470</em><em>2</em><em>冲刺 + 七连弹。</em>
+                <i class="guide-token boss-token reactor" data-glyph="炉"></i><b>熔炉心</b><em>680</em><em>3</em><em>默认环形爆发。</em>
+                <i class="guide-token boss-token mantis" data-glyph="刃"></i><b>裂刃螳</b><em>560</em><em>3</em><em>斜向突进 + 双翼弹。</em>
+                <i class="guide-token boss-token crown" data-glyph="冠"></i><b>星冠塔</b><em>730</em><em>3</em><em>十八向王冠弹幕，并可能掉落充能 / 超载。</em>
+                <i class="guide-token boss-token nebula" data-glyph="云"></i><b>星云母体</b><em>640</em><em>2</em><em>扰动冻结，释放弯曲星云弹。</em>
+                <i class="guide-token boss-token eclipse" data-glyph="蚀"></i><b>日蚀眼</b><em>560</em><em>2</em><em>双向激光 + 近身光球。</em>
+                <i class="guide-token boss-token lotus" data-glyph="莲"></i><b>莲华阵</b><em>520</em><em>2</em><em>双层花瓣弹幕。</em>
+                <i class="guide-token boss-token railgun" data-glyph="轨"></i><b>轨道炮</b><em>590</em><em>3</em><em>三线激光锁定，并出现预警轨道，躲开轨道线。</em>
+                <i class="guide-token boss-token swarm" data-glyph="蜂"></i><b>蜂巢主脑</b><em>610</em><em>2</em><em>召唤蜂群小怪 + 扇形弹。</em>
+                <i class="guide-token boss-token mirror" data-glyph="镜"></i><b>镜像魔方</b><em>540</em><em>2</em><em>镜像瞬移 + 混合弹幕。</em>
+                <i class="guide-token boss-token void" data-glyph="空"></i><b>虚空井</b><em>650</em><em>3</em><em>玩家脚下生成虚空裂隙，带吸引和持续伤害，再接宽角光球。</em>
+                <i class="guide-token boss-token comet" data-glyph="彗"></i><b>彗星骑士</b><em>570</em><em>3</em><em>长距离冲锋，留下彗星弹，并提前显示斩击路径。</em>
+                <i class="guide-token boss-token clock" data-glyph="时"></i><b>时钟械神</b><em>600</em><em>2</em><em>拖慢冲刺冷却 + 十二向时针弹。</em>
+                <i class="guide-token boss-token phoenix" data-glyph="凤"></i><b>不死鸟</b><em>620</em><em>3</em><em>火焰扇形弹，低血量概率自愈。</em>
+                <i class="guide-token boss-token cube" data-glyph="方"></i><b>超立方</b><em>670</em><em>2</em><em>四向激光 + 方阵光球，激光轨道会提前预警。</em>
+                <i class="guide-token boss-token leviathan" data-glyph="鲸"></i><b>深海龙鲸</b><em>720</em><em>3</em><em>波浪轨迹深海弹。</em>
+                <i class="guide-token boss-token siren" data-glyph="歌"></i><b>赛壬歌者</b><em>560</em><em>2</em><em>扣脉冲 + 环形音波弹。</em>
+                <i class="guide-token boss-token samurai" data-glyph="武"></i><b>霓虹武士</b><em>610</em><em>3</em><em>双段突进斩击，屏幕出现刀痕预警，再接高速刀光弹。</em>
+                <i class="guide-token boss-token satellite" data-glyph="星"></i><b>卫星矩阵</b><em>590</em><em>2</em><em>召唤轨道体 + 十二向卫星弹。</em>
+                <i class="guide-token boss-token glitch" data-glyph="错"></i><b>故障幽灵</b><em>500</em><em>2</em><em>随机瞬移 + 随机角度高速弹。</em>
+                <i class="guide-token boss-token aurora" data-glyph="极"></i><b>极光圣女</b><em>600</em><em>2</em><em>双色极光波弹。</em>
+                <i class="guide-token boss-token titan" data-glyph="锤"></i><b>泰坦锤</b><em>820</em><em>4</em><em>震地预警区，延迟后造成范围伤害，再接重型弹幕。</em>
+                <i class="guide-token boss-token thorn" data-glyph="棘"></i><b>荆棘王</b><em>650</em><em>3</em><em>二十向尖刺弹，概率召唤重装。</em>
+                <i class="guide-token boss-token monolith" data-glyph="碑"></i><b>黑碑</b><em>760</em><em>3</em><em>横竖十字激光预警区 + 追踪光球。</em>
+                <i class="guide-token boss-token dragon" data-glyph="龙"></i><b>星焰龙</b><em>790</em><em>4</em><em>大角度龙息弹幕 + 星焰光球。</em>
+              </div>
+            </section>
           </div>
+        </div>
+      </div>
+      <div class="quiz-modal" id="quizModal" aria-hidden="true">
+        <div class="quiz-panel" role="dialog" aria-modal="true" aria-labelledby="quizTitle">
+          <div class="quiz-glow" aria-hidden="true"></div>
+          <button class="quiz-close" type="button" id="quizClose" aria-label="暂时关闭答题">×</button>
+          <header class="quiz-head">
+            <div>
+              <span class="kicker" id="quizMode">复活挑战</span>
+              <h3 id="quizTitle">Python 能量校验</h3>
+            </div>
+            <div class="quiz-score" aria-label="当前积分"><strong id="quizScore">0</strong><span>/ 5</span></div>
+          </header>
+          <div class="quiz-meta">
+            <span id="quizChapter">Python 基础</span>
+            <span id="quizDifficulty">简单</span>
+            <span class="quiz-timer"><i id="quizTimerBar"></i><b id="quizTimer">20.0</b>s</span>
+          </div>
+          <div class="quiz-body">
+            <p class="quiz-question" id="quizQuestion"></p>
+            <pre class="quiz-code" id="quizCode" hidden><code></code></pre>
+            <div class="quiz-options" id="quizOptions"></div>
+            <div class="quiz-feedback" id="quizFeedback" aria-live="polite" hidden>
+              <strong id="quizFeedbackTitle"></strong>
+              <p id="quizExplanation"></p>
+              <button class="quiz-next" type="button" id="quizNext" hidden>下一题</button>
+            </div>
+          </div>
+          <footer class="quiz-foot">答对 +1　答错或超时 -1　最低 0 分</footer>
         </div>
       </div>
     </section>
@@ -258,9 +430,9 @@
   </footer>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script defer src="js/app.js?v=20260709-55"></script>
+  <script defer src="js/python-quiz-bank.js?v=20260712-04"></script>
+  <script defer src="js/app.js?v=20260712-04"></script>
 </body>
 </html>
-
 
 
