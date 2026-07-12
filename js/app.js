@@ -1027,7 +1027,6 @@
     var QUIZ_TIME_MS = 20 * 1000;
     var quizState = null;
     var quizTickTimer = 0;
-    var quizAdvanceTimer = 0;
     var guardBlocked = false;
     var guardTickAt = Date.now();
     var restoringRun = false;
@@ -1116,7 +1115,10 @@
       quizFeedback.hidden = !feedbackOn;
       quizFeedback.classList.toggle('is-correct', feedbackOn && quizState.correct);
       quizFeedback.classList.toggle('is-wrong', feedbackOn && !quizState.correct);
-      if (quizNextBtn) quizNextBtn.hidden = !feedbackOn || quizState.correct;
+      if (quizNextBtn) {
+        quizNextBtn.hidden = !feedbackOn;
+        quizNextBtn.textContent = feedbackOn && (quizState.score || 0) >= 5 ? '完成挑战' : '下一题';
+      }
       if (feedbackOn) {
         var answerText = item.options[item.answer];
         quizFeedbackTitle.textContent = quizState.correct ? '回答正确 · +1 分' : (quizState.timedOut ? '时间到 · -1 分' : '回答错误 · -1 分');
@@ -1166,7 +1168,6 @@
       }
       saveQuizState();
       clearInterval(quizTickTimer);
-      clearTimeout(quizAdvanceTimer);
       closeQuizModal();
     }
 
@@ -1205,7 +1206,6 @@
         resumeQuizChallenge();
       }
       openQuizModal();
-      if (quizState && quizState.status === 'feedback' && quizState.correct) scheduleQuizAdvance();
     }
 
     function answerQuiz(index, timedOut) {
@@ -1219,16 +1219,18 @@
       quizState.selected = timedOut ? -1 : index;
       quizState.correct = correct;
       quizState.timedOut = !!timedOut;
-      quizState.feedbackUntil = correct ? Date.now() + (quizState.score >= 5 ? 1150 : 1350) : 0;
+      quizState.feedbackUntil = 0;
       quizState.recent = (quizState.recent || []).concat(item.id).slice(-80);
       saveQuizState();
       renderQuiz();
-      if (correct) scheduleQuizAdvance();
     }
 
     function advanceQuizQuestion() {
-      if (!quizState || quizState.status !== 'feedback' || quizState.correct) return;
-      clearTimeout(quizAdvanceTimer);
+      if (!quizState || quizState.status !== 'feedback') return;
+      if ((quizState.score || 0) >= 5) {
+        completeQuizChallenge();
+        return;
+      }
       quizState.currentId = '';
       quizState.status = 'asking';
       quizState.selected = -1;
@@ -1240,33 +1242,11 @@
       renderQuiz();
     }
 
-    function scheduleQuizAdvance() {
-      clearTimeout(quizAdvanceTimer);
-      if (!quizState || quizState.status !== 'feedback' || !quizState.correct) return;
-      var wait = Math.max(0, (quizState.feedbackUntil || Date.now()) - Date.now());
-      quizAdvanceTimer = window.setTimeout(function () {
-        if (!quizState || quizState.status !== 'feedback' || !quizState.correct) return;
-        if ((quizState.score || 0) >= 5) completeQuizChallenge();
-        else {
-          quizState.currentId = '';
-          quizState.status = 'asking';
-          quizState.selected = -1;
-          quizState.correct = false;
-          quizState.timedOut = false;
-          quizState.feedbackUntil = 0;
-          ensureQuizQuestion();
-          saveQuizState();
-          renderQuiz();
-        }
-      }, wait);
-    }
-
     function updateQuizTimer() {
       if (!quizState || !quizState.active) return;
       if (quizState.status === 'feedback') {
         quizTimer.textContent = '0.0';
         quizTimerBar.style.transform = 'scaleX(0)';
-        if (quizState.correct && Date.now() >= quizState.feedbackUntil) scheduleQuizAdvance();
         return;
       }
       var left = Math.max(0, quizState.deadline - Date.now());
@@ -1337,7 +1317,7 @@
     function saveRunSnapshot(dead) {
       if (restoringRun) return;
       var data = {
-        version: 2, dead: !!dead, active: !dead && running, level: currentLevel,
+        version: 3, dead: !!dead, active: !dead && running, paused: !dead && running && paused, level: currentLevel,
         score: score, scoreFloat: scoreFloat, wave: wave, runTime: runTime,
         lives: lives, shield: shield, pulse: pulse, combo: combo,
         itemRanks: itemRanks, pickupCount: pickupCount, updatedAt: Date.now()
@@ -1367,18 +1347,19 @@
       player.x = gameW / 2; player.y = gameH / 2;
       over = !!data.dead;
       running = !over;
-      paused = false;
+      paused = running;
       if (over) {
         lives = 0;
         updateHud('已结束 · ' + level().label + ' · WAVE ' + wave);
       } else {
         lives = Math.max(1, lives);
-        updateHud('已恢复 · ' + level().label + ' · WAVE ' + wave);
+        updateHud('已暂停 · ' + level().label + ' · WAVE ' + wave);
         runId += 1;
         last = performance.now();
         requestAnimationFrame(function (now) { loop(now, runId); });
       }
       restoringRun = false;
+      if (running && !over) saveRunSnapshot(false);
       updateReviveUi();
       return true;
     }
@@ -2848,6 +2829,7 @@
       paused = !paused;
       if (!paused) last = performance.now();
       updateHud(paused ? '已暂停 · ' + level().label + ' · WAVE ' + wave : '运行中 · ' + level().label + ' · WAVE ' + wave);
+      saveRunSnapshot(false);
       draw(performance.now());
     }
 
@@ -3897,7 +3879,7 @@
 
     function drawGameHud(now) {
       var mobile = isMobileGameInput();
-      var top = isMobileFullscreen() ? 58 : 12;
+      var top = isMobileFullscreen() ? 3 : 12;
       var gap = mobile ? 6 : 8;
       var chipH = mobile ? 25 : 28;
       var hudRightLimit = isMobileFullscreen() ? Math.max(210, gameW - 88) : gameW;
@@ -4443,6 +4425,14 @@
       guardHeartbeat();
       if (running || over) saveRunSnapshot(over);
     });
+    window.addEventListener('pageshow', function (event) {
+      if (!event.persisted || !running || over) return;
+      paused = true;
+      last = performance.now();
+      updateHud('已暂停 · ' + level().label + ' · WAVE ' + wave);
+      saveRunSnapshot(false);
+      draw(performance.now());
+    });
     window.addEventListener('storage', function (e) {
       if (e.key === GUARD_KEY) syncGuardUi();
       if (e.key === QUIZ_KEY && !document.body.classList.contains('quiz-open')) {
@@ -4455,13 +4445,12 @@
     setLevel('normal');
     syncFullscreenButton();
     var restored = restoreRunSnapshot();
-    syncGuardUi();
     var storedQuiz = parseStored(QUIZ_KEY, null);
-    if (storedQuiz && storedQuiz.active && !storedQuiz.suspended) {
-      quizState = storedQuiz;
+    if (storedQuiz && storedQuiz.active) quizState = storedQuiz;
+    syncGuardUi();
+    if (quizState && quizState.active && !quizState.suspended && !document.body.classList.contains('quiz-open')) {
       ensureQuizQuestion();
       openQuizModal();
-      if (quizState.status === 'feedback' && quizState.correct) scheduleQuizAdvance();
     }
     if (!restored) { updateReviveUi(); draw(performance.now()); }
   }

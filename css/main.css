@@ -6040,3 +6040,8 @@ body.quiz-open{overflow:hidden}
   .game-over-choice-actions{gap:.55rem}.game-over-choice-actions button{min-height:2.7rem;font-size:.82rem}
   .game-card.is-mobile-fullscreen .mobile-float-start{display:none!important}
 }
+
+/* Mobile fullscreen emergency exit */
+@media (max-width:900px),(pointer:coarse){
+  .game-card.is-mobile-fullscreen .mobile-float-exit{display:inline-flex!important;align-items:center;justify-content:center;z-index:1705!important;opacity:.82!important;pointer-events:auto!important}
+}
